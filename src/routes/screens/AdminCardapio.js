@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   SafeAreaView,
@@ -8,8 +8,17 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  Modal,
+  TextInput,
 } from 'react-native';
 
+import {
+  collection,
+  addDoc,
+  onSnapshot
+} from 'firebase/firestore';
+
+import { database } from '../../../FireBaseConfig';
 
 const dias = [
   { id: 'seg', nome: 'Seg', numero: '03', pronto: true },
@@ -28,120 +37,196 @@ const tituloDoDia = {
   sex: 'Sexta-feira, 07 de agosto',
 };
 
-
-const refeicoesIniciais = {
-  seg: [
-    {
-      id: 's1',
-      icone: '🍛',
-      tipo: 'Almoço',
-      nome: 'Arroz, feijão e carne moída',
-    },
-  ],
-
-  ter: [
-    {
-      id: 't1',
-      icone: '🥗',
-      tipo: 'Almoço',
-      nome: 'Arroz, feijão, frango grelhado e salada',
-    },
-
-    {
-      id: 't2',
-      icone: '🍎',
-      tipo: 'Lanche da tarde',
-      nome: 'Fruta da estação e suco natural',
-    },
-  ],
-
-  qua: [],
-  qui: [],
-  sex: [],
-};
-
-
 export default function TelaCardapio() {
-
   const [diaEscolhido, setDiaEscolhido] = useState('seg');
 
-  const [refeicoesPorDia, setRefeicoesPorDia] =
-    useState(refeicoesIniciais);
+  const [refeicoesPorDia, setRefeicoesPorDia] = useState({
+    seg: [],
+    ter: [],
+    qua: [],
+    qui: [],
+    sex: [],
+  });
+
+  const [nomePrato, setNomePrato] = useState('');
+  const [modalAdicionar, setModalAdicionar] = useState(false);
 
 
+  // BUSCA AS REFEIÇÕES DO FIREBASE
+  useEffect(() => {
+
+    const pararDeEscutar = onSnapshot(
+      collection(database, 'NomePratos'),
+
+      (snapshot) => {
+
+        const refeicoesDoBanco = {
+          seg: [],
+          ter: [],
+          qua: [],
+          qui: [],
+          sex: [],
+        };
+
+        snapshot.forEach((documento) => {
+
+          const dados = documento.data();
+
+          // verifica se o dia existe
+          if (refeicoesDoBanco[dados.dia]) {
+
+            refeicoesDoBanco[dados.dia].push({
+              id: documento.id,
+              icone: '🍽️',
+              tipo: dados.tipo || 'Almoço',
+              nome: dados.nome,
+            });
+
+          }
+
+        });
+
+        setRefeicoesPorDia(refeicoesDoBanco);
+      },
+
+      (erro) => {
+        console.log('Erro ao buscar refeições:', erro);
+      }
+
+    );
+    return () => pararDeEscutar();
+
+  }, []);
   const listaDoDia =
     refeicoesPorDia[diaEscolhido] || [];
 
-
   function editarRefeicao(id) {
-
     Alert.alert(
       'Editar refeição',
       `Editar refeição ${id}`
     );
-
   }
-
 
   function removerRefeicao(id) {
 
-    Alert.alert(
-      'Excluir refeição',
-      'Deseja realmente excluir esta refeição?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-
-        {
-          text: 'Excluir',
-          style: 'destructive',
-
-          onPress: () => {
-
-            setRefeicoesPorDia((estadoAnterior) => ({
-              ...estadoAnterior,
-
-              [diaEscolhido]:
-                estadoAnterior[diaEscolhido].filter(
-                  (refeicao) => refeicao.id !== id
-                ),
-            }));
-
-          },
-        },
-      ]
-    );
-
   }
-
 
   function adicionarRefeicao() {
-
-    Alert.alert(
-      'Adicionar refeição',
-      `Adicionar refeição em ${tituloDoDia[diaEscolhido]}`
-    );
-
+    setNomePrato('');
+    setModalAdicionar(true);
   }
 
+  async function confirmarAdicionarRefeicao() {
 
+  if (!nomePrato.trim()) {
+    Alert.alert(
+      'Atenção',
+      'Digite o nome do prato.'
+    );
+    return;
+  }
+
+  try {
+
+    await addDoc(
+      collection(database, 'NomePratos'),
+      {
+        nome: nomePrato.trim(),
+        tipo: 'Almoço',
+        dia: diaEscolhido,
+        criadoEm: new Date(),
+      }
+    );
+
+    setNomePrato('');
+    setModalAdicionar(false);
+
+    Alert.alert(
+      'Sucesso',
+      'Refeição adicionada com sucesso!'
+    );
+
+  } catch (erro) {
+
+    console.log(
+      'Erro ao salvar refeição:',
+      erro
+    );
+
+    Alert.alert(
+      'Erro',
+      'Não foi possível salvar a refeição.'
+    );
+  }
+}
   function salvarCardapio() {
-
     Alert.alert(
       'Cardápio',
       'Cardápio salvo com sucesso!'
     );
-
   }
-
-
   return (
 
     <SafeAreaView style={estilos.tela}>
 
       <ScrollView contentContainerStyle={estilos.conteudo}>
+
+        <Modal
+    visible={modalAdicionar}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setModalAdicionar(false)}
+>
+  <View style={estilos.fundoModal}>
+
+    <View style={estilos.modal}>
+
+      <Text style={estilos.tituloModal}>
+        Adicionar refeição
+      </Text>
+
+      <Text style={estilos.subtituloModal}>
+        Digite o nome do prato
+      </Text>
+
+      <TextInput
+        style={estilos.inputPrato}
+        placeholder="Ex: Arroz, feijão e frango"
+        placeholderTextColor="#8A978B"
+        value={nomePrato}
+        onChangeText={setNomePrato}
+        autoFocus
+      />
+
+      <View style={estilos.botoesModal}>
+
+        <TouchableOpacity
+          style={estilos.botaoCancelar}
+          onPress={() => {
+            setNomePrato('');
+            setModalAdicionar(false);
+          }}
+        >
+          <Text style={estilos.textoCancelar}>
+            Cancelar
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={estilos.botaoAdicionarModal}
+          onPress={confirmarAdicionarRefeicao}
+        >
+          <Text style={estilos.textoAdicionarModal}>
+            Adicionar
+          </Text>
+        </TouchableOpacity>
+
+      </View>
+
+    </View>
+
+    </View>
+  </Modal>
 
         <View style={estilos.cabecalho}>
 
@@ -154,9 +239,6 @@ export default function TelaCardapio() {
           </Text>
 
         </View>
-
-
-        {/* Seletor de dias */}
 
         <View style={estilos.linhaDias}>
 
@@ -178,7 +260,6 @@ export default function TelaCardapio() {
                 }
                 activeOpacity={0.8}
               >
-
                 {dia.pronto && (
 
                   <View style={estilos.marcaPronto}>
@@ -186,12 +267,9 @@ export default function TelaCardapio() {
                     <Text style={estilos.marcaProntoTexto}>
                       ✓
                     </Text>
-
                   </View>
 
                 )}
-
-
                 <Text
                   style={[
                     estilos.nomeDia,
@@ -226,7 +304,6 @@ export default function TelaCardapio() {
 
         </Text>
 
-
         {listaDoDia.length === 0 && (
 
           <Text style={estilos.textoVazio}>
@@ -236,7 +313,6 @@ export default function TelaCardapio() {
           </Text>
 
         )}
-
 
         {listaDoDia.map((refeicao) => (
 
@@ -265,7 +341,6 @@ export default function TelaCardapio() {
               </Text>
 
             </View>
-
 
             <TouchableOpacity
               style={estilos.botaoIcone}
@@ -328,83 +403,6 @@ export default function TelaCardapio() {
         </TouchableOpacity>
 
       </ScrollView>
-
-
-      <View style={estilos.menuInferior}>
-
-        <View style={estilos.itemMenu}>
-
-          <Text style={estilos.iconeMenu}>
-            📅
-          </Text>
-
-          <Text
-            style={[
-              estilos.textoMenu,
-              estilos.textoMenuAtivo,
-            ]}
-          >
-            Cardápio
-          </Text>
-
-        </View>
-
-
-        <View
-          style={[
-            estilos.itemMenu,
-            estilos.itemMenuInativo,
-          ]}
-        >
-
-          <Text style={estilos.iconeMenu}>
-            💬
-          </Text>
-
-          <Text style={estilos.textoMenu}>
-            Feedback
-          </Text>
-
-        </View>
-
-
-        <View
-          style={[
-            estilos.itemMenu,
-            estilos.itemMenuInativo,
-          ]}
-        >
-
-          <Text style={estilos.iconeMenu}>
-            👥
-          </Text>
-
-          <Text style={estilos.textoMenu}>
-            Alunos
-          </Text>
-
-        </View>
-
-
-        <View
-          style={[
-            estilos.itemMenu,
-            estilos.itemMenuInativo,
-          ]}
-        >
-
-          <Text style={estilos.iconeMenu}>
-            👤
-          </Text>
-
-          <Text style={estilos.textoMenu}>
-            Perfil
-          </Text>
-
-        </View>
-
-      </View>
-
     </SafeAreaView>
 
   );
@@ -652,4 +650,73 @@ const estilos = StyleSheet.create({
   textoMenuAtivo: {
     opacity: 1,
   },
+  fundoModal: {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.35)',
+  justifyContent: 'center',
+  padding: 25,
+},
+
+modal: {
+  backgroundColor: cores.branco,
+  borderRadius: 20,
+  padding: 20,
+},
+
+tituloModal: {
+  fontSize: 20,
+  fontWeight: '800',
+  color: cores.verdeEscuro,
+},
+
+subtituloModal: {
+  fontSize: 12,
+  color: cores.textoClaro,
+  marginTop: 5,
+  marginBottom: 12,
+},
+
+inputPrato: {
+  borderWidth: 1.5,
+  borderColor: cores.linha,
+  borderRadius: 14,
+  paddingHorizontal: 14,
+  paddingVertical: 12,
+  fontSize: 14,
+  color: cores.texto,
+  backgroundColor: cores.fundo,
+},
+
+botoesModal: {
+  flexDirection: 'row',
+  gap: 10,
+  marginTop: 18,
+},
+
+botaoCancelar: {
+  flex: 1,
+  paddingVertical: 12,
+  borderRadius: 14,
+  alignItems: 'center',
+  borderWidth: 1.5,
+  borderColor: cores.linha,
+},
+
+textoCancelar: {
+  color: cores.textoClaro,
+  fontWeight: '700',
+},
+
+botaoAdicionarModal: {
+  flex: 1,
+  paddingVertical: 12,
+  borderRadius: 14,
+  alignItems: 'center',
+  backgroundColor: cores.verde,
+},
+
+textoAdicionarModal: {
+  color: cores.branco,
+  fontWeight: '700',
+},
 });
