@@ -10,19 +10,38 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../../FireBaseConfig';;
+
 export default function TelaLogin({ navigation }) {
   const [tipoConta, setTipoConta] = useState('aluno');
   const [email, setEmail] = useState('');
+  const [escola, SetEscola] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  function entrar() {
-    
-    console.log('Entrar com:', tipoConta, email, senha);
-    navigation.navigate("HomeAluno");
+  const EntrarNaConta = () => {
+  if (!email || !senha) {
+    Alert.alert('Atenção', 'Preencha todos os campos!');
+    return;
   }
 
-  return (
+  signInWithEmailAndPassword(auth, email, senha)
+    .then((userCredential) => {
+      const user = userCredential.user;
+
+      console.log(user);
+
+      navigation.navigate('AdminCardapio');
+    })
+    .catch((error) => {
+      Alert.alert()
+
+      Alert.alert('Erro no login', error.message);
+    });
+};
+
+  return (  
     <SafeAreaView style={styles.tela}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6FAF1" />
       <ScrollView contentContainerStyle={styles.conteudo}>
@@ -72,6 +91,20 @@ export default function TelaLogin({ navigation }) {
         </View>
 
         <View style={styles.campo}>
+          <Text style={styles.rotulo}>Escola</Text>
+          <View style={styles.caixa}>
+            <TextInput
+              style={styles.entrada}
+              placeholder="Digite o nome da sua escola.."
+              placeholderTextColor="#5B6B5C"
+              value={escola}
+              onChangeText={SetEscola}
+            />
+            <Text style={styles.iconeCaixa}>✉️</Text>
+          </View>
+        </View>
+
+        <View style={styles.campo}>
           <Text style={styles.rotulo}>SENHA</Text>
           <View style={styles.caixa}>
             <TextInput
@@ -96,24 +129,9 @@ export default function TelaLogin({ navigation }) {
           <Text style={styles.esqueciTexto}>Esqueci minha senha</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.botao} onPress={entrar}>
+        <TouchableOpacity style={styles.botao} activeOpacity={0.8} onPress={EntrarNaConta}>
           <Text style={styles.botaoTexto}>Entrar</Text>
         </TouchableOpacity>
-
-        <View style={styles.divisor}>
-          <View style={styles.linha} />
-          <Text style={styles.divisorTexto}>ou continue com</Text>
-          <View style={styles.linha} />
-        </View>
-
-        <View style={styles.linhaSociais}>
-          <TouchableOpacity style={styles.botaoSocial}>
-            <Text style={styles.botaoSocialTexto}>🔵 Google</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.botaoSocial}>
-            <Text style={styles.botaoSocialTexto}> Apple</Text>
-          </TouchableOpacity>
-        </View>
 
         <TouchableOpacity
           style={styles.trocarTela}
