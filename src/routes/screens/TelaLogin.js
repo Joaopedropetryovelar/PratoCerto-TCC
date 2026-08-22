@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
+
 import {
   View,
   Text,
@@ -7,11 +8,13 @@ import {
   StyleSheet,
   ScrollView,
   StatusBar,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+  Alert,
+} from "react-native";
+
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../../FireBaseConfig';;
+import { auth } from '../../../FireBaseConfig';
 
 export default function TelaLogin({ navigation }) {
   const [tipoConta, setTipoConta] = useState('aluno');
@@ -20,28 +23,61 @@ export default function TelaLogin({ navigation }) {
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
-  const EntrarNaConta = () => {
-  if (!email || !senha) {
-    Alert.alert('Atenção', 'Preencha todos os campos!');
-    return;
-  }
+  const emailsDaEquipe = [
+    'joao@admin.com', // guarde sempre em minúsculo aqui, já que comparamos em minúsculo
+  ];
 
-  signInWithEmailAndPassword(auth, email, senha)
-    .then((userCredential) => {
-      const user = userCredential.user;
+  const entrarNaConta = async () => {
+    if (!email || !senha) {
+      Alert.alert('Atenção', 'Preencha o e-mail e a senha!');
+      return;
+    }
 
-      console.log(user);
+    try {
+      const credencialUsuario = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        senha.trim()
+      );
 
-      navigation.navigate('AdminCardapio');
-    })
-    .catch((error) => {
-      Alert.alert()
+      const emailLogado = credencialUsuario.user.email
+        .toLowerCase()
+        .trim();
 
-      Alert.alert('Erro no login', error.message);
-    });
-};
+      const contaDaEquipe = emailsDaEquipe.includes(emailLogado);
 
-  return (  
+      if (contaDaEquipe) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeAdmin' }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'HomeAluno' }],
+        });
+      }
+    } catch (erro) {
+      console.log('CÓDIGO DO ERRO:', erro.code);
+      console.log('ERRO COMPLETO:', erro.message);
+
+      let mensagem = 'E-mail ou senha incorretos.';
+
+      if (erro.code === 'auth/invalid-email') {
+        mensagem = 'Digite um e-mail válido.';
+      } else if (erro.code === 'auth/user-not-found') {
+        mensagem = 'Não existe conta com esse e-mail.';
+      } else if (erro.code === 'auth/too-many-requests') {
+        mensagem = 'Muitas tentativas erradas. Tente novamente mais tarde.';
+      } else if (erro.code === 'auth/network-request-failed') {
+        mensagem = 'Sem conexão com a internet.';
+      }
+
+      Alert.alert('Erro no login', mensagem);
+    }
+  };
+
+  return (
     <SafeAreaView style={styles.tela}>
       <StatusBar barStyle="dark-content" backgroundColor="#F6FAF1" />
       <ScrollView contentContainerStyle={styles.conteudo}>
@@ -129,7 +165,7 @@ export default function TelaLogin({ navigation }) {
           <Text style={styles.esqueciTexto}>Esqueci minha senha</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.botao} activeOpacity={0.8} onPress={EntrarNaConta}>
+        <TouchableOpacity style={styles.botao} activeOpacity={0.8} onPress={entrarNaConta}>
           <Text style={styles.botaoTexto}>Entrar</Text>
         </TouchableOpacity>
 
