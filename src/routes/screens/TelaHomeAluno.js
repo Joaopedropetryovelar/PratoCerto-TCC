@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 
 import {
   ScrollView,
@@ -7,106 +7,175 @@ import {
   TouchableOpacity,
   StatusBar,
   StyleSheet,
-} from 'react-native';
+} from "react-native";
 
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   collection,
   onSnapshot,
-} from 'firebase/firestore';
+} from "firebase/firestore";
 
-import { database } from '../../../FireBaseConfig';
+import {
+  database,
+  auth,
+} from "../../../FireBaseConfig";
+
 
 function formatarDataBanco(data) {
   const ano = data.getFullYear();
-  const mes = String(data.getMonth() + 1).padStart(2, '0');
-  const dia = String(data.getDate()).padStart(2, '0');
+
+  const mes = String(
+    data.getMonth() + 1
+  ).padStart(2, "0");
+
+  const dia = String(
+    data.getDate()
+  ).padStart(2, "0");
 
   return `${ano}-${mes}-${dia}`;
 }
 
+
 function gerarDiasDaSemanaAtual() {
   const hoje = new Date();
-  const diaDaSemana = hoje.getDay();
+
+  const diaDaSemana =
+    hoje.getDay();
 
   const diferencaParaSegunda =
-    diaDaSemana === 0 ? -6 : 1 - diaDaSemana;
+    diaDaSemana === 0
+      ? -6
+      : 1 - diaDaSemana;
 
-  const segunda = new Date(hoje);
+  const segunda =
+    new Date(hoje);
 
-  segunda.setHours(12, 0, 0, 0);
-  segunda.setDate(hoje.getDate() + diferencaParaSegunda);
+  segunda.setHours(
+    12,
+    0,
+    0,
+    0
+  );
+
+  segunda.setDate(
+    hoje.getDate() +
+      diferencaParaSegunda
+  );
 
   const nomesDosDias = [
-    'Seg',
-    'Ter',
-    'Qua',
-    'Qui',
-    'Sex',
+    "Seg",
+    "Ter",
+    "Qua",
+    "Qui",
+    "Sex",
   ];
 
   const diasDaSemana = [];
 
-  for (let i = 0; i < 5; i++) {
-    const data = new Date(segunda);
+  for (
+    let i = 0;
+    i < 5;
+    i++
+  ) {
+    const data =
+      new Date(segunda);
 
-    data.setDate(segunda.getDate() + i);
+    data.setDate(
+      segunda.getDate() + i
+    );
 
     diasDaSemana.push({
-      id: formatarDataBanco(data),
-      nome: nomesDosDias[i],
-      numero: String(data.getDate()).padStart(2, '0'),
-      data,
+      id: formatarDataBanco(
+        data
+      ),
+
+      nome:
+        nomesDosDias[i],
+
+      numero:
+        String(
+          data.getDate()
+        ).padStart(
+          2,
+          "0"
+        ),
+
+      data: data,
     });
   }
 
   return diasDaSemana;
 }
 
-function formatarTituloDoDia(data) {
+
+function formatarTituloDoDia(
+  data
+) {
   if (!data) {
-    return '';
+    return "";
   }
 
   const nomesDosDias = [
-    'Domingo',
-    'Segunda-feira',
-    'Terça-feira',
-    'Quarta-feira',
-    'Quinta-feira',
-    'Sexta-feira',
-    'Sábado',
+    "Domingo",
+    "Segunda-feira",
+    "Terça-feira",
+    "Quarta-feira",
+    "Quinta-feira",
+    "Sexta-feira",
+    "Sábado",
   ];
 
   const nomesDosMeses = [
-    'janeiro',
-    'fevereiro',
-    'março',
-    'abril',
-    'maio',
-    'junho',
-    'julho',
-    'agosto',
-    'setembro',
-    'outubro',
-    'novembro',
-    'dezembro',
+    "janeiro",
+    "fevereiro",
+    "março",
+    "abril",
+    "maio",
+    "junho",
+    "julho",
+    "agosto",
+    "setembro",
+    "outubro",
+    "novembro",
+    "dezembro",
   ];
 
-  const nomeDia = nomesDosDias[data.getDay()];
-  const numeroDia = String(data.getDate()).padStart(2, '0');
-  const nomeMes = nomesDosMeses[data.getMonth()];
+  const nomeDia =
+    nomesDosDias[
+      data.getDay()
+    ];
+
+  const numeroDia =
+    String(
+      data.getDate()
+    ).padStart(
+      2,
+      "0"
+    );
+
+  const nomeMes =
+    nomesDosMeses[
+      data.getMonth()
+    ];
 
   return `${nomeDia}, ${numeroDia} de ${nomeMes}`;
 }
 
-function pegarDiaInicial(dias) {
-  const hoje = formatarDataBanco(new Date());
 
-  const diaAtual = dias.find(
-    (dia) => dia.id === hoje
-  );
+function pegarDiaInicial(
+  dias
+) {
+  const hoje =
+    formatarDataBanco(
+      new Date()
+    );
+
+  const diaAtual =
+    dias.find(
+      (dia) =>
+        dia.id === hoje
+    );
 
   if (diaAtual) {
     return diaAtual.id;
@@ -115,347 +184,619 @@ function pegarDiaInicial(dias) {
   return dias[0].id;
 }
 
-export default function TelaHomeAluno() {
-  const dias = gerarDiasDaSemanaAtual();
 
-  const [diaEscolhido, setDiaEscolhido] = useState(
-    () => pegarDiaInicial(dias)
+export default function TelaHomeAluno({
+  navigation,
+  route,
+}) {
+  const params =
+    route?.params || {};
+
+  /*
+    Tenta pegar o aluno
+    independentemente de como
+    ele veio da tela de login.
+  */
+  const aluno =
+    params.aluno ||
+    params.usuario ||
+    params.user ||
+    {};
+
+
+  const alunoId =
+    params.alunoId ??
+    params.matricula ??
+    aluno.id ??
+    aluno.matricula ??
+    auth.currentUser?.uid ??
+    null;
+
+
+  const alunoNome =
+    params.alunoNome ??
+    params.nomeAluno ??
+    aluno.nome ??
+    auth.currentUser
+      ?.displayName ??
+    "Aluno";
+
+
+  const alunoTurma =
+    params.turma ??
+    aluno.turma ??
+    "";
+
+
+  const dias =
+    gerarDiasDaSemanaAtual();
+
+
+  const [
+    diaEscolhido,
+    setDiaEscolhido,
+  ] = useState(
+    () =>
+      pegarDiaInicial(
+        dias
+      )
   );
 
-  const [refeicoesPorDia, setRefeicoesPorDia] = useState({});
+
+  const [
+    refeicoesPorDia,
+    setRefeicoesPorDia,
+  ] = useState({});
+
 
   useEffect(() => {
-    const pararDeEscutar = onSnapshot(
-      collection(database, 'NomePratos'),
+    const pararDeEscutar =
+      onSnapshot(
+        collection(
+          database,
+          "NomePratos"
+        ),
 
-      (snapshot) => {
-        const refeicoesDoBanco = {};
+        (snapshot) => {
+          const refeicoesDoBanco =
+            {};
 
-        dias.forEach((dia) => {
-          refeicoesDoBanco[dia.id] = [];
-        });
+          dias.forEach(
+            (dia) => {
+              refeicoesDoBanco[
+                dia.id
+              ] = [];
+            }
+          );
 
-        snapshot.forEach((documento) => {
-          const dados = documento.data();
 
-          const dataDaRefeicao = dados.data;
+          snapshot.forEach(
+            (documento) => {
+              const dados =
+                documento.data();
 
-          if (refeicoesDoBanco[dataDaRefeicao]) {
-            refeicoesDoBanco[dataDaRefeicao].push({
-              id: documento.id,
-              nome: dados.nome,
-              tipo: dados.tipo || 'Almoço',
-              icone: dados.icone || '🍽️',
-              descricao: dados.descricao || '',
-              horarioLimite: dados.horarioLimite || '09:00',
-              horarioFim: dados.horarioFim || '12:30',
-              ativo: dados.ativo !== false,
-            });
-          }
-        });
+              const dataDaRefeicao =
+                dados.data;
 
-        setRefeicoesPorDia(refeicoesDoBanco);
-      },
+              if (
+                refeicoesDoBanco[
+                  dataDaRefeicao
+                ]
+              ) {
+                refeicoesDoBanco[
+                  dataDaRefeicao
+                ].push({
+                  id:
+                    documento.id,
 
-      (erro) => {
-        console.log('Erro ao buscar refeições:', erro);
-      }
-    );
+                  nome:
+                    dados.nome,
+
+                  tipo:
+                    dados.tipo ||
+                    "Almoço",
+
+                  icone:
+                    dados.icone ||
+                    "🍽️",
+
+                  descricao:
+                    dados.descricao ||
+                    "",
+
+                  horarioLimite:
+                    dados.horarioLimite ||
+                    "09:00",
+
+                  horarioFim:
+                    dados.horarioFim ||
+                    "12:30",
+
+                  ativo:
+                    dados.ativo !==
+                    false,
+
+                  data:
+                    dataDaRefeicao,
+                });
+              }
+            }
+          );
+
+          setRefeicoesPorDia(
+            refeicoesDoBanco
+          );
+        },
+
+        (erro) => {
+          console.log(
+            "Erro ao buscar refeições:",
+            erro
+          );
+        }
+      );
+
 
     return () => {
       pararDeEscutar();
     };
+
   }, []);
 
-  const listaDoDia =
-    refeicoesPorDia[diaEscolhido] || [];
 
-  const diaSelecionado = dias.find(
-    (dia) => dia.id === diaEscolhido
-  );
+  const listaDoDia =
+    refeicoesPorDia[
+      diaEscolhido
+    ] || [];
+
+
+  const diaSelecionado =
+    dias.find(
+      (dia) =>
+        dia.id ===
+        diaEscolhido
+    );
+
 
   return (
-    <SafeAreaView style={estilos.tela}>
+    <SafeAreaView
+      style={estilos.tela}
+    >
       <StatusBar
         barStyle="dark-content"
         backgroundColor="#F6FAF1"
       />
 
       <ScrollView
-        style={estilos.conteudo}
-        contentContainerStyle={estilos.conteudoInterno}
-        showsVerticalScrollIndicator={false}
+        style={
+          estilos.conteudo
+        }
+        contentContainerStyle={
+          estilos.conteudoInterno
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        <View style={estilos.cabecalho}>
-          <Text style={estilos.saudacao}>
-            Bom dia, Lucas 👋
+
+        <View
+          style={
+            estilos.cabecalho
+          }
+        >
+          <Text
+            style={
+              estilos.saudacao
+            }
+          >
+            Bom dia, {alunoNome} 👋
           </Text>
 
-          <Text style={estilos.titulo}>
+          <Text
+            style={
+              estilos.titulo
+            }
+          >
             🌿 Cardápio da semana
           </Text>
         </View>
 
-        <View style={estilos.linhaDias}>
-          {dias.map((item) => {
-            const ativo =
-              item.id === diaEscolhido;
 
-            const temRefeicao =
-              (refeicoesPorDia[item.id] || []).length > 0;
+        <View
+          style={
+            estilos.linhaDias
+          }
+        >
+          {dias.map(
+            (item) => {
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  estilos.dia,
-                  ativo && estilos.diaAtivo,
-                ]}
-                onPress={() =>
-                  setDiaEscolhido(item.id)
-                }
-              >
-                <Text
+              const ativo =
+                item.id ===
+                diaEscolhido;
+
+              const temRefeicao =
+                (
+                  refeicoesPorDia[
+                    item.id
+                  ] || []
+                ).length > 0;
+
+
+              return (
+                <TouchableOpacity
+                  key={
+                    item.id
+                  }
                   style={[
-                    estilos.diaAbrev,
-                    ativo && estilos.textoClaro,
-                  ]}
-                >
-                  {item.nome}
-                </Text>
+                    estilos.dia,
 
-                <Text
-                  style={[
-                    estilos.diaNumero,
-                    ativo && estilos.textoClaro,
+                    ativo &&
+                      estilos.diaAtivo,
                   ]}
+                  onPress={() =>
+                    setDiaEscolhido(
+                      item.id
+                    )
+                  }
                 >
-                  {item.numero}
-                </Text>
-
-                {temRefeicao && (
-                  <View
+                  <Text
                     style={[
-                      estilos.bolinha,
-                      ativo && estilos.bolinhaAtiva,
+                      estilos.diaAbrev,
+
+                      ativo &&
+                        estilos.textoClaro,
                     ]}
-                  />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+                  >
+                    {item.nome}
+                  </Text>
+
+                  <Text
+                    style={[
+                      estilos.diaNumero,
+
+                      ativo &&
+                        estilos.textoClaro,
+                    ]}
+                  >
+                    {item.numero}
+                  </Text>
+
+                  {temRefeicao && (
+                    <View
+                      style={[
+                        estilos.bolinha,
+
+                        ativo &&
+                          estilos.bolinhaAtiva,
+                      ]}
+                    />
+                  )}
+
+                </TouchableOpacity>
+              );
+            }
+          )}
         </View>
 
-        <Text style={estilos.rotuloSecao}>
+
+        <Text
+          style={
+            estilos.rotuloSecao
+          }
+        >
           {formatarTituloDoDia(
             diaSelecionado?.data
           )}
         </Text>
 
-        {listaDoDia.length === 0 ? (
-          <Text style={estilos.textoVazio}>
-            Nenhuma refeição cadastrada para este dia.
+
+        {listaDoDia.length ===
+        0 ? (
+          <Text
+            style={
+              estilos.textoVazio
+            }
+          >
+            Nenhuma refeição
+            cadastrada para este
+            dia.
           </Text>
         ) : (
-          listaDoDia.map((refeicao) => (
-            <View
-              key={refeicao.id}
-              style={estilos.cartaoRefeicao}
-            >
-              <View style={estilos.icone}>
-                <Text style={estilos.icTexto}>
-                  {refeicao.icone}
-                </Text>
-              </View>
 
-              <View style={estilos.info}>
-                <Text style={estilos.tipo}>
-                  {refeicao.tipo}
-                </Text>
+          listaDoDia.map(
+            (refeicao) => (
 
-                <Text style={estilos.nome}>
-                  {refeicao.nome}
-                </Text>
-              </View>
+              <TouchableOpacity
+                key={
+                  refeicao.id
+                }
+                style={
+                  estilos.cartaoRefeicao
+                }
 
-              <View style={estilos.selo}>
-                <Text style={estilos.seloTexto}>
-                  Disponível
-                </Text>
-              </View>
-            </View>
-          ))
+                onPress={() => {
+                  navigation.navigate(
+                    "Confirmacao",
+                    {
+                      refeicao:
+                        refeicao,
+
+                      alunoId:
+                        alunoId,
+
+                      matricula:
+                        alunoId,
+
+                      alunoNome:
+                        alunoNome,
+
+                      turma:
+                        alunoTurma,
+                    }
+                  );
+                }}
+              >
+
+                <View
+                  style={
+                    estilos.icone
+                  }
+                >
+                  <Text
+                    style={
+                      estilos.icTexto
+                    }
+                  >
+                    {
+                      refeicao.icone
+                    }
+                  </Text>
+                </View>
+
+
+                <View
+                  style={
+                    estilos.info
+                  }
+                >
+                  <Text
+                    style={
+                      estilos.tipo
+                    }
+                  >
+                    {
+                      refeicao.tipo
+                    }
+                  </Text>
+
+                  <Text
+                    style={
+                      estilos.nome
+                    }
+                  >
+                    {
+                      refeicao.nome
+                    }
+                  </Text>
+                </View>
+
+
+                <View
+                  style={
+                    estilos.selo
+                  }
+                >
+                  <Text
+                    style={
+                      estilos.seloTexto
+                    }
+                  >
+                    Disponível
+                  </Text>
+                </View>
+
+              </TouchableOpacity>
+            )
+          )
         )}
+
       </ScrollView>
     </SafeAreaView>
   );
 }
 
+
 const cores = {
-  bg: '#F6FAF1',
-  ink: '#1E2B21',
-  inkSoft: '#5B6B5C',
-  primary: '#2F6B4F',
-  primaryDark: '#204A37',
-  card: '#EFF6E7',
-  mango: '#F2A93B',
-  line: '#DCE8D2',
-  white: '#FFFFFF',
+  bg: "#F6FAF1",
+  ink: "#1E2B21",
+  inkSoft: "#5B6B5C",
+  primary: "#2F6B4F",
+  primaryDark: "#204A37",
+  card: "#EFF6E7",
+  mango: "#F2A93B",
+  line: "#DCE8D2",
+  white: "#FFFFFF",
 };
 
-const estilos = StyleSheet.create({
-  tela: {
-    flex: 1,
-    backgroundColor: cores.bg,
-  },
 
-  conteudo: {
-    flex: 1,
-  },
+const estilos =
+  StyleSheet.create({
 
-  conteudoInterno: {
-    paddingHorizontal: 20,
-    paddingTop: 9,
-    paddingBottom: 20,
-  },
+    tela: {
+      flex: 1,
+      backgroundColor:
+        cores.bg,
+    },
 
-  cabecalho: {
-    marginBottom: 24,
-  },
+    conteudo: {
+      flex: 1,
+    },
 
-  saudacao: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: cores.inkSoft,
-  },
+    conteudoInterno: {
+      paddingHorizontal: 20,
+      paddingTop: 9,
+      paddingBottom: 20,
+    },
 
-  titulo: {
-    fontWeight: '800',
-    fontSize: 23,
-    color: cores.primaryDark,
-    marginTop: 7,
-  },
+    cabecalho: {
+      marginBottom: 24,
+    },
 
-  linhaDias: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
+    saudacao: {
+      fontSize: 12,
+      fontWeight: "600",
+      color:
+        cores.inkSoft,
+    },
 
-  dia: {
-    flex: 1,
-    backgroundColor: cores.white,
-    borderWidth: 1.5,
-    borderColor: cores.line,
-    borderRadius: 16,
-    paddingVertical: 9,
-    alignItems: 'center',
-  },
+    titulo: {
+      fontWeight: "800",
+      fontSize: 23,
+      color:
+        cores.primaryDark,
+      marginTop: 7,
+    },
 
-  diaAtivo: {
-    backgroundColor: cores.primary,
-    borderColor: cores.primary,
-  },
+    linhaDias: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 20,
+    },
 
-  diaAbrev: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: cores.inkSoft,
-    textTransform: 'uppercase',
-  },
+    dia: {
+      flex: 1,
+      backgroundColor:
+        cores.white,
+      borderWidth: 1.5,
+      borderColor:
+        cores.line,
+      borderRadius: 16,
+      paddingVertical: 9,
+      alignItems: "center",
+    },
 
-  diaNumero: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: cores.ink,
-    marginTop: 2,
-  },
+    diaAtivo: {
+      backgroundColor:
+        cores.primary,
+      borderColor:
+        cores.primary,
+    },
 
-  textoClaro: {
-    color: cores.white,
-  },
+    diaAbrev: {
+      fontSize: 10,
+      fontWeight: "700",
+      color:
+        cores.inkSoft,
+      textTransform:
+        "uppercase",
+    },
 
-  bolinha: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: cores.mango,
-    marginTop: 4,
-  },
+    diaNumero: {
+      fontWeight: "700",
+      fontSize: 16,
+      color: cores.ink,
+      marginTop: 2,
+    },
 
-  bolinhaAtiva: {
-    backgroundColor: cores.white,
-  },
+    textoClaro: {
+      color: cores.white,
+    },
 
-  rotuloSecao: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: cores.inkSoft,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 10,
-  },
+    bolinha: {
+      width: 5,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor:
+        cores.mango,
+      marginTop: 4,
+    },
 
-  textoVazio: {
-    fontSize: 13,
-    color: cores.inkSoft,
-    marginBottom: 15,
-  },
+    bolinhaAtiva: {
+      backgroundColor:
+        cores.white,
+    },
 
-  cartaoRefeicao: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: cores.white,
-    borderWidth: 1.5,
-    borderColor: cores.line,
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
-  },
+    rotuloSecao: {
+      fontSize: 11,
+      fontWeight: "700",
+      color:
+        cores.inkSoft,
+      textTransform:
+        "uppercase",
+      letterSpacing: 0.5,
+      marginBottom: 10,
+    },
 
-  icone: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: cores.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    textoVazio: {
+      fontSize: 13,
+      color:
+        cores.inkSoft,
+      marginBottom: 15,
+    },
 
-  icTexto: {
-    fontSize: 22,
-  },
+    cartaoRefeicao: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      backgroundColor:
+        cores.white,
+      borderWidth: 1.5,
+      borderColor:
+        cores.line,
+      borderRadius: 20,
+      padding: 14,
+      marginBottom: 14,
+    },
 
-  info: {
-    flex: 1,
-  },
+    icone: {
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor:
+        cores.card,
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
 
-  tipo: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: cores.primary,
-    textTransform: 'uppercase',
-  },
+    icTexto: {
+      fontSize: 22,
+    },
 
-  nome: {
-    fontWeight: '700',
-    fontSize: 14.5,
-    color: cores.ink,
-    marginTop: 2,
-    lineHeight: 19,
-  },
+    info: {
+      flex: 1,
+    },
 
-  selo: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 100,
-    backgroundColor: cores.card,
-  },
+    tipo: {
+      fontSize: 10,
+      fontWeight: "700",
+      color:
+        cores.primary,
+      textTransform:
+        "uppercase",
+    },
 
-  seloTexto: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: cores.primary,
-  },
-});
+    nome: {
+      fontWeight: "700",
+      fontSize: 14.5,
+      color: cores.ink,
+      marginTop: 2,
+      lineHeight: 19,
+    },
+
+    selo: {
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+      borderRadius: 100,
+      backgroundColor:
+        cores.card,
+    },
+
+    seloTexto: {
+      fontSize: 10,
+      fontWeight: "700",
+      color:
+        cores.primary,
+    },
+
+  });

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
+
 import {
   Alert,
   SafeAreaView,
@@ -9,32 +10,185 @@ import {
   Text,
   TouchableOpacity,
   View,
-} from 'react-native';
+  ActivityIndicator,
+} from "react-native";
 
-export default function TelaPerfilUsuario({ navigation: navegacao }) {
-  const [avisosCardapio, definirAvisosCardapio] = useState(true);
-  const [lembretePresenca, definirLembretePresenca] = useState(true);
+import {
+  doc,
+  onSnapshot,
+} from "firebase/firestore";
 
-  function abrirTela(nomeDaTela) {
-    if (navegacao) {
-      navegacao.navigate(nomeDaTela);
+import {
+  signOut,
+} from "firebase/auth";
+
+import {
+  auth,
+  database,
+} from "../../../FireBaseConfig";
+
+export default function TelaPerfilUsuario({ navigation }) {
+  const [avisosCardapio, setAvisosCardapio] = useState(true);
+  const [lembretePresenca, setLembretePresenca] = useState(true);
+
+  const [usuario, setUsuario] = useState({
+    nome: "",
+    matricula: "",
+    email: "",
+    escola: "",
+    turma: "",
+  });
+
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    const usuarioLogado = auth.currentUser;
+
+    if (!usuarioLogado) {
+      setCarregando(false);
+      return;
     }
+
+    const usuarioRef = doc(
+      database,
+      "usuarios",
+      usuarioLogado.uid
+    );
+
+    const pararDeEscutar = onSnapshot(
+      usuarioRef,
+
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const dados = snapshot.data();
+
+          setUsuario({
+            nome: dados.nome || "",
+            matricula: dados.matricula || "",
+            email: dados.email || usuarioLogado.email || "",
+            escola: dados.escola || "",
+            turma: dados.turma || "",
+          });
+        } else {
+          setUsuario({
+            nome: usuarioLogado.displayName || "Aluno",
+            matricula: "",
+            email: usuarioLogado.email || "",
+            escola: "",
+            turma: "",
+          });
+        }
+
+        setCarregando(false);
+      },
+
+      (erro) => {
+        console.log("Erro ao carregar perfil:", erro);
+
+        setCarregando(false);
+      }
+    );
+
+    return () => {
+      pararDeEscutar();
+    };
+  }, []);
+
+  function pegarIniciais(nome) {
+    if (!nome) {
+      return "A";
+    }
+
+    const partes = nome
+      .trim()
+      .split(" ")
+      .filter((parte) => parte.length > 0);
+
+    if (partes.length === 1) {
+      return partes[0]
+        .substring(0, 2)
+        .toUpperCase();
+    }
+
+    return (
+      partes[0][0] +
+      partes[partes.length - 1][0]
+    ).toUpperCase();
   }
 
   function editarPerfil() {
-    Alert.alert('Editar perfil', 'Aqui você pode abrir a tela de edição.');
+    Alert.alert(
+      "Editar perfil",
+      "Aqui você poderá editar seus dados."
+    );
   }
 
   function sairDaConta() {
-    Alert.alert('Sair da conta', 'Deseja realmente sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive' },
-    ]);
+    Alert.alert(
+      "Sair da conta",
+      "Deseja realmente sair?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+
+        {
+          text: "Sair",
+          style: "destructive",
+
+          onPress: async () => {
+            try {
+              await signOut(auth);
+
+              navigation.reset({
+                index: 0,
+                routes: [
+                  {
+                    name: "TelaLogin",
+                  },
+                ],
+              });
+            } catch (erro) {
+              console.log(
+                "Erro ao sair da conta:",
+                erro
+              );
+
+              Alert.alert(
+                "Erro",
+                "Não foi possível sair da conta."
+              );
+            }
+          },
+        },
+      ]
+    );
+  }
+
+  if (carregando) {
+    return (
+      <SafeAreaView style={estilos.tela}>
+        <View style={estilos.carregando}>
+          <ActivityIndicator
+            size="large"
+            color="#2F6B4F"
+          />
+
+          <Text style={estilos.carregandoTexto}>
+            Carregando perfil...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={estilos.tela}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6FAF1" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F6FAF1"
+      />
 
       <ScrollView
         style={estilos.rolagem}
@@ -42,106 +196,217 @@ export default function TelaPerfilUsuario({ navigation: navegacao }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={estilos.cabecalho}>
-          <Text style={estilos.subtituloCabecalho}>Sua conta no Prato Certo</Text>
-          <Text style={estilos.titulo}>Meu perfil</Text>
+          <Text style={estilos.subtituloCabecalho}>
+            Sua conta no Prato Certo
+          </Text>
+
+          <Text style={estilos.titulo}>
+            Meu perfil
+          </Text>
         </View>
 
         <View style={estilos.cartaoPerfil}>
           <View style={estilos.fotoPerfil}>
-            <Text style={estilos.iniciaisUsuario}>SL</Text>
+            <Text style={estilos.iniciaisUsuario}>
+              {pegarIniciais(usuario.nome)}
+            </Text>
           </View>
 
           <View style={estilos.informacoesPerfil}>
-            <Text style={estilos.nomeUsuario}>Sofia Lima</Text>
-            <Text style={estilos.escolaUsuario}>Escola Municipal Girassol</Text>
+            <Text style={estilos.nomeUsuario}>
+              {usuario.nome || "Aluno"}
+            </Text>
+
+            <Text style={estilos.escolaUsuario}>
+              {usuario.escola || "Escola não informada"}
+            </Text>
+
             <View style={estilos.seloTurma}>
-              <Text style={estilos.textoSeloTurma}>ALUNA · 7º B</Text>
+              <Text style={estilos.textoSeloTurma}>
+                ALUNO
+                {usuario.turma
+                  ? ` · ${usuario.turma}`
+                  : ""}
+              </Text>
             </View>
           </View>
 
-          <TouchableOpacity style={estilos.botaoEditar} onPress={editarPerfil}>
-            <Text style={estilos.iconeEditar}>✏️</Text>
+          <TouchableOpacity
+            style={estilos.botaoEditar}
+            onPress={editarPerfil}
+          >
+            <Text style={estilos.iconeEditar}>
+              ✏️
+            </Text>
           </TouchableOpacity>
         </View>
 
         <View style={estilos.linhaResumo}>
           <View style={estilos.cartaoResumo}>
-            <Text style={estilos.valorResumo}>12</Text>
-            <Text style={estilos.rotuloResumo}>REFEIÇÕES{`\n`}CONFIRMADAS</Text>
+            <Text style={estilos.valorResumo}>
+              0
+            </Text>
+
+            <Text style={estilos.rotuloResumo}>
+              REFEIÇÕES{"\n"}CONFIRMADAS
+            </Text>
           </View>
+
           <View style={estilos.cartaoResumo}>
-            <Text style={estilos.valorResumo}>8</Text>
-            <Text style={estilos.rotuloResumo}>AVALIAÇÕES{`\n`}ENVIADAS</Text>
+            <Text style={estilos.valorResumo}>
+              0
+            </Text>
+
+            <Text style={estilos.rotuloResumo}>
+              AVALIAÇÕES{"\n"}ENVIADAS
+            </Text>
           </View>
+
           <View style={estilos.cartaoResumo}>
-            <Text style={estilos.valorResumo}>96%</Text>
-            <Text style={estilos.rotuloResumo}>PRESENÇA{`\n`}NO MÊS</Text>
+            <Text style={estilos.valorResumo}>
+              -
+            </Text>
+
+            <Text style={estilos.rotuloResumo}>
+              PRESENÇA{"\n"}NO MÊS
+            </Text>
           </View>
         </View>
 
-        <Text style={estilos.tituloSecao}>DADOS DA CONTA</Text>
+        <Text style={estilos.tituloSecao}>
+          DADOS DA CONTA
+        </Text>
 
         <View style={estilos.cartaoConfiguracoes}>
-          <TouchableOpacity style={estilos.linhaConfiguracao} onPress={editarPerfil}>
+          <TouchableOpacity
+            style={estilos.linhaConfiguracao}
+            onPress={editarPerfil}
+          >
             <View style={estilos.caixaIconeConfiguracao}>
-              <Text style={estilos.iconeConfiguracao}>✉️</Text>
-            </View>
-            <View style={estilos.caixaTextoConfiguracao}>
-              <Text style={estilos.tituloConfiguracao}>E-mail</Text>
-              <Text style={estilos.descricaoConfiguracao}>
-                sofia.lima@escola.com
+              <Text style={estilos.iconeConfiguracao}>
+                ✉️
               </Text>
             </View>
-            <Text style={estilos.setaDireita}>›</Text>
+
+            <View style={estilos.caixaTextoConfiguracao}>
+              <Text style={estilos.tituloConfiguracao}>
+                E-mail
+              </Text>
+
+              <Text style={estilos.descricaoConfiguracao}>
+                {usuario.email || "Não informado"}
+              </Text>
+            </View>
+
+            <Text style={estilos.setaDireita}>
+              ›
+            </Text>
           </TouchableOpacity>
 
           <View style={estilos.divisor} />
 
-          <TouchableOpacity style={estilos.linhaConfiguracao} onPress={editarPerfil}>
+          <TouchableOpacity
+            style={estilos.linhaConfiguracao}
+            onPress={editarPerfil}
+          >
             <View style={estilos.caixaIconeConfiguracao}>
-              <Text style={estilos.iconeConfiguracao}>🏫</Text>
-            </View>
-            <View style={estilos.caixaTextoConfiguracao}>
-              <Text style={estilos.tituloConfiguracao}>Escola e turma</Text>
-              <Text style={estilos.descricaoConfiguracao}>
-                Municipal Girassol · 7º B
+              <Text style={estilos.iconeConfiguracao}>
+                🏫
               </Text>
             </View>
-            <Text style={estilos.setaDireita}>›</Text>
+
+            <View style={estilos.caixaTextoConfiguracao}>
+              <Text style={estilos.tituloConfiguracao}>
+                Escola e turma
+              </Text>
+
+              <Text style={estilos.descricaoConfiguracao}>
+                {usuario.escola || "Escola não informada"}
+
+                {usuario.turma
+                  ? ` · ${usuario.turma}`
+                  : ""}
+              </Text>
+            </View>
+
+            <Text style={estilos.setaDireita}>
+              ›
+            </Text>
           </TouchableOpacity>
 
           <View style={estilos.divisor} />
 
-          <TouchableOpacity style={estilos.linhaConfiguracao} onPress={editarPerfil}>
+          <View style={estilos.linhaConfiguracao}>
             <View style={estilos.caixaIconeConfiguracao}>
-              <Text style={estilos.iconeConfiguracao}>🔒</Text>
+              <Text style={estilos.iconeConfiguracao}>
+                🎓
+              </Text>
             </View>
+
             <View style={estilos.caixaTextoConfiguracao}>
-              <Text style={estilos.tituloConfiguracao}>Alterar senha</Text>
+              <Text style={estilos.tituloConfiguracao}>
+                Matrícula
+              </Text>
+
+              <Text style={estilos.descricaoConfiguracao}>
+                {usuario.matricula || "Não informada"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={estilos.divisor} />
+
+          <TouchableOpacity
+            style={estilos.linhaConfiguracao}
+            onPress={editarPerfil}
+          >
+            <View style={estilos.caixaIconeConfiguracao}>
+              <Text style={estilos.iconeConfiguracao}>
+                🔒
+              </Text>
+            </View>
+
+            <View style={estilos.caixaTextoConfiguracao}>
+              <Text style={estilos.tituloConfiguracao}>
+                Alterar senha
+              </Text>
+
               <Text style={estilos.descricaoConfiguracao}>
                 Atualize sua senha de acesso
               </Text>
             </View>
-            <Text style={estilos.setaDireita}>›</Text>
+
+            <Text style={estilos.setaDireita}>
+              ›
+            </Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={estilos.tituloSecao}>PREFERÊNCIAS</Text>
+        <Text style={estilos.tituloSecao}>
+          PREFERÊNCIAS
+        </Text>
 
         <View style={estilos.cartaoConfiguracoes}>
           <View style={estilos.linhaConfiguracao}>
             <View style={estilos.caixaIconeConfiguracao}>
-              <Text style={estilos.iconeConfiguracao}>🔔</Text>
+              <Text style={estilos.iconeConfiguracao}>
+                🔔
+              </Text>
             </View>
+
             <View style={estilos.caixaTextoConfiguracao}>
-              <Text style={estilos.tituloConfiguracao}>Avisos de cardápio</Text>
+              <Text style={estilos.tituloConfiguracao}>
+                Avisos de cardápio
+              </Text>
+
               <Text style={estilos.descricaoConfiguracao}>
                 Receber novidades da escola
               </Text>
             </View>
+
             <Switch
               value={avisosCardapio}
-              onValueChange={definirAvisosCardapio}
+              onValueChange={setAvisosCardapio}
               trackColor={coresInterruptor.trilho}
               thumbColor="#FFFFFF"
             />
@@ -151,29 +416,46 @@ export default function TelaPerfilUsuario({ navigation: navegacao }) {
 
           <View style={estilos.linhaConfiguracao}>
             <View style={estilos.caixaIconeConfiguracao}>
-              <Text style={estilos.iconeConfiguracao}>✅</Text>
+              <Text style={estilos.iconeConfiguracao}>
+                ✅
+              </Text>
             </View>
+
             <View style={estilos.caixaTextoConfiguracao}>
-              <Text style={estilos.tituloConfiguracao}>Lembrete de presença</Text>
+              <Text style={estilos.tituloConfiguracao}>
+                Lembrete de presença
+              </Text>
+
               <Text style={estilos.descricaoConfiguracao}>
                 Avisar antes do fim do prazo
               </Text>
             </View>
+
             <Switch
               value={lembretePresenca}
-              onValueChange={definirLembretePresenca}
+              onValueChange={setLembretePresenca}
               trackColor={coresInterruptor.trilho}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
-        <TouchableOpacity style={estilos.botaoSair} onPress={() => navigation?.navigate('TelaLogin')}>
-          <Text style={estilos.iconeSair}>↪</Text>
-          <Text style={estilos.textoSair}>Sair da conta</Text>
+        <TouchableOpacity
+          style={estilos.botaoSair}
+          onPress={sairDaConta}
+        >
+          <Text style={estilos.iconeSair}>
+            ↪
+          </Text>
+
+          <Text style={estilos.textoSair}>
+            Sair da conta
+          </Text>
         </TouchableOpacity>
 
-        <Text style={estilos.textoVersao}>Prato Certo · versão 1.0.0</Text>
+        <Text style={estilos.textoVersao}>
+          Prato Certo · versão 1.0.0
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -181,214 +463,260 @@ export default function TelaPerfilUsuario({ navigation: navegacao }) {
 
 const coresInterruptor = {
   trilho: {
-    false: '#DCE8D2',
-    true: '#2F6B4F',
+    false: "#DCE8D2",
+    true: "#2F6B4F",
   },
 };
 
 const estilos = StyleSheet.create({
   tela: {
     flex: 1,
-    backgroundColor: '#F6FAF1',
+    backgroundColor: "#F6FAF1",
   },
+
+  carregando: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  carregandoTexto: {
+    marginTop: 12,
+    color: "#5B6B5C",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
   rolagem: {
     flex: 1,
   },
+
   conteudoRolagem: {
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 24,
   },
+
   cabecalho: {
     marginBottom: 18,
   },
+
   subtituloCabecalho: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 2,
   },
+
   titulo: {
-    color: '#204A37',
+    color: "#204A37",
     fontSize: 25,
-    fontWeight: '800',
+    fontWeight: "800",
   },
+
   cartaoPerfil: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DCE8D2",
     borderWidth: 1.5,
     borderRadius: 20,
     padding: 15,
     marginBottom: 12,
   },
+
   fotoPerfil: {
     width: 62,
     height: 62,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#2F6B4F',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2F6B4F",
     borderRadius: 31,
     marginRight: 13,
   },
+
   iniciaisUsuario: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: "900",
   },
+
   informacoesPerfil: {
     flex: 1,
   },
+
   nomeUsuario: {
-    color: '#1E2B21',
+    color: "#1E2B21",
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 3,
   },
+
   escolaUsuario: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 11,
     lineHeight: 15,
     marginBottom: 7,
   },
+
   seloTurma: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EFF6E7',
+    alignSelf: "flex-start",
+    backgroundColor: "#EFF6E7",
     borderRadius: 100,
     paddingHorizontal: 9,
     paddingVertical: 4,
   },
+
   textoSeloTurma: {
-    color: '#2F6B4F',
+    color: "#2F6B4F",
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.3,
   },
+
   botaoEditar: {
     width: 34,
     height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EFF6E7',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EFF6E7",
     borderRadius: 11,
     marginLeft: 8,
   },
+
   iconeEditar: {
     fontSize: 14,
   },
+
   linhaResumo: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 20,
   },
+
   cartaoResumo: {
     flex: 1,
     minHeight: 76,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DCE8D2",
     borderWidth: 1.5,
     borderRadius: 16,
     paddingHorizontal: 5,
     paddingVertical: 9,
   },
+
   valorResumo: {
-    color: '#2F6B4F',
+    color: "#2F6B4F",
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: "900",
     marginBottom: 3,
   },
+
   rotuloResumo: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 7.5,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
+
   tituloSecao: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 0.8,
     marginBottom: 9,
   },
+
   cartaoConfiguracoes: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
+    backgroundColor: "#FFFFFF",
+    borderColor: "#DCE8D2",
     borderWidth: 1.5,
     borderRadius: 18,
     paddingHorizontal: 13,
     marginBottom: 20,
   },
+
   linhaConfiguracao: {
     minHeight: 68,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
+
   caixaIconeConfiguracao: {
     width: 38,
     height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EFF6E7',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EFF6E7",
     borderRadius: 12,
     marginRight: 11,
   },
+
   iconeConfiguracao: {
     fontSize: 16,
   },
+
   caixaTextoConfiguracao: {
     flex: 1,
     paddingVertical: 11,
   },
+
   tituloConfiguracao: {
-    color: '#1E2B21',
+    color: "#1E2B21",
     fontSize: 12.5,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 3,
   },
+
   descricaoConfiguracao: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 10.5,
     lineHeight: 14,
   },
+
   setaDireita: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 24,
-    fontWeight: '400',
+    fontWeight: "400",
     marginLeft: 8,
   },
+
   divisor: {
     height: 1,
-    backgroundColor: '#DCE8D2',
+    backgroundColor: "#DCE8D2",
     marginLeft: 49,
   },
+
   botaoSair: {
     minHeight: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    backgroundColor: '#FBE1DD',
+    backgroundColor: "#FBE1DD",
     borderRadius: 16,
     marginBottom: 12,
   },
+
   iconeSair: {
-    color: '#E85D4C',
+    color: "#E85D4C",
     fontSize: 19,
-    fontWeight: '800',
+    fontWeight: "800",
   },
+
   textoSair: {
-    color: '#E85D4C',
+    color: "#E85D4C",
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: "800",
   },
+
   textoVersao: {
-    color: '#5B6B5C',
+    color: "#5B6B5C",
     fontSize: 10,
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.7,
   },
 });

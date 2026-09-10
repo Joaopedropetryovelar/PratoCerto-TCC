@@ -22,124 +22,62 @@ import {
   where,
 } from "firebase/firestore";
 
-import {
-  database,
-  auth,
-} from "../../../FireBaseConfig";
+import { database, auth } from "../../../FireBaseConfig";
 
-export default function TelaDeConfirmacao({
-  navigation,
-  route,
-}) {
+export default function TelaDeConfirmacao({ navigation, route }) {
   const params = route?.params || {};
 
-  // ==========================================
-  // DATA DE HOJE
-  // ==========================================
+  const [refeicao, setRefeicao] = useState(params.refeicao || null);
+  const [resposta, setResposta] = useState(null);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
 
   function pegarDataHoje() {
     const hoje = new Date();
-
     const ano = hoje.getFullYear();
-
-    const mes = String(
-      hoje.getMonth() + 1
-    ).padStart(2, "0");
-
-    const dia = String(
-      hoje.getDate()
-    ).padStart(2, "0");
+    const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+    const dia = String(hoje.getDate()).padStart(2, "0");
 
     return `${ano}-${mes}-${dia}`;
   }
 
   const dataHoje = pegarDataHoje();
 
-  function pegarIdDiaHoje() {
-    const dias = {
-      1: "seg",
-      2: "ter",
-      3: "qua",
-      4: "qui",
-      5: "sex",
-    };
+  const aluno = params.aluno || params.usuario || params.user || {};
 
-    return dias[new Date().getDay()] || null;
-  }
-
-  const diaHoje = pegarIdDiaHoje();
-
-  // ==========================================
-  // ALUNO
-  // ==========================================
-
-  /*
-    Primeiro tenta pegar matrícula/aluno
-    enviado pela tela anterior.
-
-    Se não existir, tenta pegar o UID
-    do Firebase Authentication.
-
-    "aluno_teste" serve apenas para desenvolvimento.
-  */
-
-  const alunoId = String(
+  const idRecebido =
     params.alunoId ??
-      params.matricula ??
-      auth.currentUser?.uid ??
-      "aluno_teste"
-  );
+    params.matricula ??
+    aluno.id ??
+    aluno.matricula ??
+    auth.currentUser?.uid ??
+    null;
+
+  const alunoId = idRecebido ? String(idRecebido) : null;
 
   const alunoNome = String(
     params.alunoNome ??
       params.nomeAluno ??
+      aluno.nome ??
       auth.currentUser?.displayName ??
       "Aluno"
   );
 
-  const alunoTurma = String(
-    params.turma ?? ""
-  );
-
-  // ==========================================
-  // STATES
-  // ==========================================
-
-  const [refeicao, setRefeicao] =
-    useState(null);
-
-  const [resposta, setResposta] =
-    useState(null);
-
-  const [carregando, setCarregando] =
-    useState(true);
-
-  const [salvando, setSalvando] =
-    useState(false);
-
-  // ==========================================
-  // FORMATAR DATA
-  // ==========================================
+  const alunoTurma = String(params.turma ?? aluno.turma ?? "");
 
   function formatarData(data) {
-    if (!data) {
-      return "";
-    }
+    if (!data) return "";
 
     const partes = data.split("-");
 
-    if (partes.length !== 3) {
-      return data;
-    }
+    if (partes.length !== 3) return data;
 
     return `${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
-  // ==========================================
-  // DIA DA SEMANA
-  // ==========================================
+  function pegarDiaSemana(data) {
+    if (!data) return "";
 
-  function pegarDiaSemana() {
     const dias = [
       "Domingo",
       "Segunda-feira",
@@ -150,23 +88,21 @@ export default function TelaDeConfirmacao({
       "Sábado",
     ];
 
-    return dias[new Date().getDay()];
+    const dataConvertida = new Date(`${data}T12:00:00`);
+
+    return dias[dataConvertida.getDay()];
   }
 
-  // ==========================================
-  // BUSCA REFEIÇÃO DO DIA
-  // ==========================================
-
   useEffect(() => {
-    if (!diaHoje) {
-      setRefeicao(null);
+    if (params.refeicao) {
+      setRefeicao(params.refeicao);
       setCarregando(false);
       return;
     }
 
     const consulta = query(
       collection(database, "NomePratos"),
-      where("dia", "==", diaHoje)
+      where("data", "==", dataHoje)
     );
 
     const cancelarListener = onSnapshot(
@@ -180,74 +116,42 @@ export default function TelaDeConfirmacao({
           if (dados.ativo !== false) {
             lista.push({
               id: documento.id,
-              nome:
-                dados.nome ||
-                "Refeição do dia",
-
-              descricao:
-                dados.descricao || "",
-
-              tipo:
-                dados.tipo || "Almoço",
-
-              icone:
-                dados.icone || "🍛",
-
-              horarioFim:
-                dados.horarioFim ||
-                "12:30",
-
-              data: dataHoje,
+              nome: dados.nome || "Refeição do dia",
+              descricao: dados.descricao || "",
+              tipo: dados.tipo || "Almoço",
+              icone: dados.icone || "🍽️",
+              horarioLimite: dados.horarioLimite || "09:00",
+              horarioFim: dados.horarioFim || "12:30",
+              data: dados.data || dataHoje,
             });
           }
         });
 
-        const refeicaoDoDia =
-          lista.find(
-            (item) =>
-              item.tipo === "Almoço"
-          ) ||
+        const refeicaoEncontrada =
+          lista.find((item) => item.tipo === "Almoço") ||
           lista[0] ||
           null;
 
-        setRefeicao(
-          refeicaoDoDia
-        );
-
+        setRefeicao(refeicaoEncontrada);
         setCarregando(false);
       },
-
       (erro) => {
-        console.log(
-          "Erro ao carregar refeição:",
-          erro
-        );
-
+        console.log("Erro ao carregar refeição:", erro);
+        setRefeicao(null);
         setCarregando(false);
-
-        Alert.alert(
-          "Erro",
-          "Não foi possível carregar a refeição de hoje."
-        );
       }
     );
 
-    return () =>
-      cancelarListener();
-  }, [diaHoje, dataHoje]);
-
-  // ==========================================
-  // BUSCA RESPOSTA DO ALUNO
-  // ==========================================
+    return () => cancelarListener();
+  }, [params.refeicao, dataHoje]);
 
   useEffect(() => {
-    if (!refeicao) {
+    if (!refeicao?.id || !alunoId) {
       setResposta(null);
       return;
     }
 
-    const confirmacaoId =
-      `${refeicao.id}_${alunoId}`;
+    const confirmacaoId = `${refeicao.id}_${alunoId}`;
 
     const confirmacaoRef = doc(
       database,
@@ -255,61 +159,53 @@ export default function TelaDeConfirmacao({
       confirmacaoId
     );
 
-    const cancelarListener =
-      onSnapshot(
-        confirmacaoRef,
-
-        (snapshot) => {
-          if (!snapshot.exists()) {
-            setResposta(null);
-            return;
-          }
-
-          const dados =
-            snapshot.data();
-
-          if (
-            dados.vaiConsumir ===
-            true
-          ) {
-            setResposta("sim");
-          } else if (
-            dados.vaiConsumir ===
-            false
-          ) {
-            setResposta("nao");
-          }
-        },
-
-        (erro) => {
-          console.log(
-            "Erro ao buscar resposta:",
-            erro
-          );
+    const cancelarListener = onSnapshot(
+      confirmacaoRef,
+      (snapshot) => {
+        if (!snapshot.exists()) {
+          setResposta(null);
+          return;
         }
-      );
 
-    return () => {
-      cancelarListener();
-    };
+        const dados = snapshot.data();
+
+        if (dados.vaiConsumir === true) {
+          setResposta("sim");
+        } else if (dados.vaiConsumir === false) {
+          setResposta("nao");
+        }
+      },
+      (erro) => {
+        console.log("Erro ao buscar resposta:", erro);
+      }
+    );
+
+    return () => cancelarListener();
   }, [refeicao?.id, alunoId]);
 
-  // ==========================================
-  // SALVA A RESPOSTA
-  // ==========================================
-
-  async function salvarResposta(
-    vaiConsumir
-  ) {
+  async function salvarResposta(vaiConsumir) {
     if (!refeicao) {
+      Alert.alert(
+        "Sem refeição",
+        "Não existe refeição disponível para confirmar."
+      );
       return;
     }
+
+    if (!alunoId) {
+      Alert.alert(
+        "Aluno não identificado",
+        "Não foi possível identificar o aluno."
+      );
+      return;
+    }
+
+    if (salvando) return;
 
     try {
       setSalvando(true);
 
-      const confirmacaoId =
-        `${refeicao.id}_${alunoId}`;
+      const confirmacaoId = `${refeicao.id}_${alunoId}`;
 
       const confirmacaoRef = doc(
         database,
@@ -320,37 +216,16 @@ export default function TelaDeConfirmacao({
       await setDoc(
         confirmacaoRef,
         {
-          alunoId:
-            alunoId,
-
-          alunoNome:
-            alunoNome,
-
-          turma:
-            alunoTurma,
-
-          refeicaoId:
-            refeicao.id,
-
-          refeicaoNome:
-            refeicao.nome,
-
-          tipoRefeicao:
-            refeicao.tipo,
-
-          data:
-            refeicao.data,
-
-          vaiConsumir:
-            vaiConsumir,
-
-          resposta:
-            vaiConsumir
-              ? "confirmado"
-              : "recusado",
-
-          dataResposta:
-            serverTimestamp(),
+          alunoId: alunoId,
+          alunoNome: alunoNome,
+          turma: alunoTurma,
+          refeicaoId: refeicao.id,
+          refeicaoNome: refeicao.nome,
+          tipoRefeicao: refeicao.tipo || "Almoço",
+          data: refeicao.data || dataHoje,
+          vaiConsumir: vaiConsumir,
+          resposta: vaiConsumir ? "confirmado" : "recusado",
+          dataResposta: serverTimestamp(),
         },
         {
           merge: true,
@@ -361,8 +236,8 @@ export default function TelaDeConfirmacao({
         setResposta("sim");
 
         Alert.alert(
-          "Presença confirmada! ✅",
-          "Você informou que vai consumir esta refeição."
+          "Confirmado! ✅",
+          "Sua refeição foi confirmada."
         );
       } else {
         setResposta("nao");
@@ -373,60 +248,24 @@ export default function TelaDeConfirmacao({
         );
       }
     } catch (erro) {
-      console.log(
-        "Erro ao salvar resposta:",
-        erro
-      );
+      console.log("Erro ao salvar confirmação:", erro);
 
       Alert.alert(
         "Erro",
-        "Não foi possível registrar sua resposta."
+        "Não foi possível salvar sua resposta."
       );
     } finally {
       setSalvando(false);
     }
   }
 
-  // ==========================================
-  // BOTÃO SIM
-  // ==========================================
-
-  function confirmarConsumo() {
-    salvarResposta(true);
-  }
-
-  // ==========================================
-  // BOTÃO NÃO
-  // ==========================================
-
-  function recusarConsumo() {
-    salvarResposta(false);
-  }
-
-  // ==========================================
-  // CARREGANDO
-  // ==========================================
-
   if (carregando) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={
-            styles.carregandoContainer
-          }
-        >
-          <ActivityIndicator
-            size="large"
-            color="#2F6B4F"
-          />
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.carregandoContainer}>
+          <ActivityIndicator size="large" color="#2F6B4F" />
 
-          <Text
-            style={
-              styles.carregandoTexto
-            }
-          >
+          <Text style={styles.carregandoTexto}>
             Carregando refeição...
           </Text>
         </View>
@@ -434,335 +273,136 @@ export default function TelaDeConfirmacao({
     );
   }
 
-  // ==========================================
-  // SEM REFEIÇÃO
-  // ==========================================
-
   if (!refeicao) {
     return (
-      <SafeAreaView
-        style={styles.safeArea}
-      >
-        <View
-          style={
-            styles.semRefeicaoContainer
-          }
-        >
-          <Text
-            style={
-              styles.semRefeicaoIcone
-            }
-          >
-            🍽️
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.semRefeicaoContainer}>
+          <Text style={styles.semRefeicaoIcone}>🍽️</Text>
+
+          <Text style={styles.semRefeicaoTitulo}>
+            Nenhuma refeição disponível
           </Text>
 
-          <Text
-            style={
-              styles.semRefeicaoTitulo
-            }
-          >
-            Nenhuma refeição cadastrada
+          <Text style={styles.semRefeicaoTexto}>
+            Não existe uma refeição cadastrada para hoje.
           </Text>
-
-          <Text
-            style={
-              styles.semRefeicaoTexto
-            }
-          >
-            Ainda não existe uma
-            refeição cadastrada para
-            hoje.
-          </Text>
-
-          <TouchableOpacity
-            style={
-              styles.botaoVoltarGrande
-            }
-            onPress={() =>
-              navigation.goBack()
-            }
-          >
-            <Text
-              style={
-                styles.botaoVoltarGrandeTexto
-              }
-            >
-              Voltar
-            </Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  // ==========================================
-  // TELA
-  // ==========================================
-
   return (
-    <SafeAreaView
-      style={styles.safeArea}
-    >
+    <SafeAreaView style={styles.safeArea}>
       <ScrollView
-        contentContainerStyle={
-          styles.container
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
       >
-        {/* VOLTAR */}
-
-        <TouchableOpacity
-          style={
-            styles.botaoVoltar
-          }
-          onPress={() =>
-            navigation.goBack()
-          }
-        >
-          <Text
-            style={
-              styles.textoVoltar
-            }
-          >
-            ←
-          </Text>
-        </TouchableOpacity>
-
-        {/* CABEÇALHO */}
-
-        <View
-          style={styles.header}
-        >
-          <Text
-            style={styles.data}
-          >
-            {pegarDiaSemana()},{" "}
-            {formatarData(
-              refeicao.data
-            )}
+        <View style={styles.header}>
+          <Text style={styles.data}>
+            {pegarDiaSemana(refeicao.data)}
+            {refeicao.data
+              ? `, ${formatarData(refeicao.data)}`
+              : ""}
           </Text>
 
-          <Text
-            style={styles.titulo}
-          >
-            {refeicao.tipo} de hoje
+          <Text style={styles.titulo}>
+            {refeicao.tipo || "Almoço"} de hoje
           </Text>
         </View>
 
-        {/* PRATO */}
-
-        <View
-          style={styles.cardPrato}
-        >
-          <View
-            style={
-              styles.circuloExterno
-            }
-          >
-            <View
-              style={
-                styles.circuloInterno
-              }
-            >
-              <Text
-                style={
-                  styles.iconePrato
-                }
-              >
-                {refeicao.icone}
+        <View style={styles.cardPrato}>
+          <View style={styles.circuloExterno}>
+            <View style={styles.circuloInterno}>
+              <Text style={styles.iconePrato}>
+                {refeicao.icone || "🍽️"}
               </Text>
             </View>
           </View>
 
-          <Text
-            style={
-              styles.nomePrato
-            }
-          >
+          <Text style={styles.nomePrato}>
             {refeicao.nome}
           </Text>
 
-          <Text
-            style={
-              styles.descricao
-            }
-          >
-            {refeicao.descricao}
-          </Text>
+          {refeicao.descricao ? (
+            <Text style={styles.descricao}>
+              {refeicao.descricao}
+            </Text>
+          ) : null}
         </View>
 
-        {/* PERGUNTA */}
-
-        <Text
-          style={
-            styles.pergunta
-          }
-        >
+        <Text style={styles.pergunta}>
           Você vai comer{"\n"}
           na escola hoje?
         </Text>
 
-        {/* BOTÕES */}
-
-        <View
-          style={
-            styles.botoesContainer
-          }
-        >
+        <View style={styles.botoesContainer}>
           <TouchableOpacity
             activeOpacity={0.8}
-
-            onPress={
-              confirmarConsumo
-            }
-
-            disabled={
-              salvando
-            }
-
+            onPress={() => salvarResposta(true)}
+            disabled={salvando}
             style={[
               styles.botao,
-
               styles.botaoSim,
-
-              resposta ===
-                "sim" &&
-                styles.botaoSimSelecionado,
+              resposta === "sim" && styles.botaoSimSelecionado,
             ]}
           >
-            <Text
-              style={
-                styles.iconeBotao
-              }
-            >
-              ✅
-            </Text>
+            <Text style={styles.iconeBotao}>✅</Text>
 
-            <Text
-              style={
-                styles.textoBotaoSim
-              }
-            >
+            <Text style={styles.textoBotaoSim}>
               Vou comer
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             activeOpacity={0.8}
-
-            onPress={
-              recusarConsumo
-            }
-
-            disabled={
-              salvando
-            }
-
+            onPress={() => salvarResposta(false)}
+            disabled={salvando}
             style={[
               styles.botao,
-
               styles.botaoNao,
-
-              resposta ===
-                "nao" &&
-                styles.botaoNaoSelecionado,
+              resposta === "nao" && styles.botaoNaoSelecionado,
             ]}
           >
-            <Text
-              style={
-                styles.iconeBotao
-              }
-            >
-              ✖️
-            </Text>
+            <Text style={styles.iconeBotao}>✖️</Text>
 
-            <Text
-              style={
-                styles.textoBotaoNao
-              }
-            >
+            <Text style={styles.textoBotaoNao}>
               Não vou comer
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* SALVANDO */}
-
         {salvando && (
-          <Text
-            style={
-              styles.salvandoTexto
-            }
-          >
+          <Text style={styles.salvandoTexto}>
             Registrando resposta...
           </Text>
         )}
 
-        {/* STATUS */}
-
         {resposta !== null && (
-          <View
-            style={
-              styles.statusBox
-            }
-          >
-            <Text
-              style={
-                styles.statusTexto
-              }
-            >
+          <View style={styles.statusBox}>
+            <Text style={styles.statusTexto}>
               {resposta === "sim"
                 ? "✅ Refeição confirmada."
                 : "✖️ Você informou que não irá consumir esta refeição."}
             </Text>
 
-            <Text
-              style={
-                styles.statusAjuda
-              }
-            >
-              Você pode alterar sua
-              resposta quando quiser.
+            <Text style={styles.statusAjuda}>
+              Você pode alterar sua resposta quando quiser.
             </Text>
           </View>
         )}
 
-        {/* IMPACTO */}
+        <View style={styles.impactoBox}>
+          <Text style={styles.percentual}>🍽️</Text>
 
-        <View
-          style={
-            styles.impactoBox
-          }
-        >
-          <Text
-            style={
-              styles.percentual
-            }
-          >
-            🍽️
-          </Text>
-
-          <Text
-            style={
-              styles.impactoTexto
-            }
-          >
-            Sua resposta ajuda a
-            cozinha a preparar a
-            quantidade certa e evitar
-            desperdício.
+          <Text style={styles.impactoTexto}>
+            Sua resposta ajuda a cozinha a preparar a quantidade
+            certa e evitar desperdício.
           </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-// ==========================================
-// ESTILOS
-// ==========================================
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -787,24 +427,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: "#5B6B5C",
     fontWeight: "600",
-  },
-
-  botaoVoltar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.5,
-    borderColor: "#DCE8D2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-
-  textoVoltar: {
-    fontSize: 22,
-    color: "#204A37",
-    fontWeight: "700",
   },
 
   header: {
@@ -833,14 +455,11 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     alignItems: "center",
     marginBottom: 16,
-
     shadowColor: "#000",
-
     shadowOffset: {
       width: 0,
       height: 4,
     },
-
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
@@ -1023,18 +642,5 @@ const styles = StyleSheet.create({
     color: "#5B6B5C",
     textAlign: "center",
     lineHeight: 20,
-  },
-
-  botaoVoltarGrande: {
-    backgroundColor: "#2F6B4F",
-    paddingVertical: 13,
-    paddingHorizontal: 30,
-    borderRadius: 14,
-    marginTop: 20,
-  },
-
-  botaoVoltarGrandeTexto: {
-    color: "#FFFFFF",
-    fontWeight: "800",
   },
 });
