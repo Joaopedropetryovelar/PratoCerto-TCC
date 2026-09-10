@@ -24,7 +24,7 @@ export default function TelaLogin({ navigation }) {
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
   const emailsDaEquipe = [
-    'joao@admin.com', // guarde sempre em minúsculo aqui, já que comparamos em minúsculo
+    'joao@admin.com',
   ];
 
   const entrarNaConta = async () => {
@@ -85,30 +85,13 @@ export default function TelaLogin({ navigation }) {
           <Text style={styles.logoEmoji}>🥗</Text>
         </View>
 
-        <Text style={styles.titulo}>Bem-vindo de volta</Text>
+        <Text style={styles.titulo}>Seja Bem-vindo de volta</Text>
         <Text style={styles.subtitulo}>
           Entre para ver o cardápio da semana e confirmar suas refeições.
         </Text>
 
-        <View style={styles.trocaTipo}>
-          <TouchableOpacity
-            style={[styles.opcao, tipoConta === 'aluno' && styles.opcaoAtiva]}
-            onPress={() => setTipoConta('aluno')}
-          >
-            <Text style={[styles.opcaoTexto, tipoConta === 'aluno' && styles.opcaoTextoAtivo]}>
-              Aluno / Responsável
-            </Text>
-          </TouchableOpacity>
+        <Text style={styles.Login}>FAÇA SEU LOGIN!</Text>
 
-          <TouchableOpacity
-            style={[styles.opcao, tipoConta === 'equipe' && styles.opcaoAtiva]}
-            onPress={() => setTipoConta('equipe')}
-          >
-            <Text style={[styles.opcaoTexto, tipoConta === 'equipe' && styles.opcaoTextoAtivo]}>
-              Equipe da escola
-            </Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={styles.campo}>
           <Text style={styles.rotulo}>E-MAIL</Text>
@@ -171,7 +154,7 @@ export default function TelaLogin({ navigation }) {
 
         <TouchableOpacity
           style={styles.trocarTela}
-          onPress={() => navigation?.navigate('Cadastro')}
+          onPress={() => navigation?.navigate('Consentimento')}
         >
           <Text style={styles.trocarTelaTexto}>
             Não tem conta? <Text style={styles.trocarTelaNegrito}>Cadastre-se</Text>
@@ -217,31 +200,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 22,
   },
-  trocaTipo: {
-    flexDirection: 'row',
-    backgroundColor: '#EFF6E7',
-    borderRadius: 16,
-    padding: 4,
-    marginBottom: 22,
-  },
-  opcao: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 11,
-    borderRadius: 12,
-  },
-  opcaoAtiva: {
-    backgroundColor: '#2F6B4F',
-    elevation: 3,
-  },
-  opcaoTexto: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#5B6B5C',
-  },
-  opcaoTextoAtivo: {
-    color: '#FFFFFF',
-  },
+
   campo: {
     marginBottom: 16,
   },
@@ -348,4 +307,10 @@ const styles = StyleSheet.create({
     color: '#2F6B4F',
     fontWeight: '700',
   },
+  Login:{
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 14,
+    color: '#2F6B4F',
+  }
 });

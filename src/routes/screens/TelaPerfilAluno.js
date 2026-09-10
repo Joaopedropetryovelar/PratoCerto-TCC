@@ -168,7 +168,7 @@ export default function TelaPerfilUsuario({ navigation: navegacao }) {
           </View>
         </View>
 
-        <TouchableOpacity style={estilos.botaoSair} onPress={sairDaConta}>
+        <TouchableOpacity style={estilos.botaoSair} onPress={() => navigation?.navigate('TelaLogin')}>
           <Text style={estilos.iconeSair}>↪</Text>
           <Text style={estilos.textoSair}>Sair da conta</Text>
         </TouchableOpacity>

@@ -1,356 +1,1229 @@
-import React from 'react';
+import React, {
+  useEffect,
+  useState,
+} from "react";
+
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
   StatusBar,
   Text,
-  TouchableOpacity,
   View,
-} from 'react-native';
+  ActivityIndicator,
+} from "react-native";
 
-export default function TelaDeFeedbackAdmin({ navigation: navegacao }) {
-  function abrirTela(nomeDaTela) {
-    if (navegacao) {
-      navegacao.navigate(nomeDaTela);
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
+
+import {
+  database,
+} from "../../../FireBaseConfig";
+
+export default function TelaDeFeedbackAdmin({
+  navigation,
+}) {
+  const [refeicao, setRefeicao] =
+    useState(null);
+
+  const [
+    confirmacoes,
+    setConfirmacoes,
+  ] = useState([]);
+
+  const [
+    feedbacks,
+    setFeedbacks,
+  ] = useState([]);
+
+  const [
+    carregando,
+    setCarregando,
+  ] = useState(true);
+
+  function pegarDataHoje() {
+    const hoje = new Date();
+
+    const ano =
+      hoje.getFullYear();
+
+    const mes = String(
+      hoje.getMonth() + 1
+    ).padStart(2, "0");
+
+    const dia = String(
+      hoje.getDate()
+    ).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  const dataHoje =
+    pegarDataHoje();
+
+  function pegarIdDiaHoje() {
+    const dias = {
+      1: "seg",
+      2: "ter",
+      3: "qua",
+      4: "qui",
+      5: "sex",
+    };
+
+    return dias[new Date().getDay()] || null;
+  }
+
+  const diaHoje = pegarIdDiaHoje();
+
+  function formatarData(data) {
+    if (!data) {
+      return "";
     }
+
+    const partes =
+      data.split("-");
+
+    if (
+      partes.length !== 3
+    ) {
+      return data;
+    }
+
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
+  function pegarDiaSemana() {
+    const dias = [
+      "Domingo",
+      "Segunda-feira",
+      "Terça-feira",
+      "Quarta-feira",
+      "Quinta-feira",
+      "Sexta-feira",
+      "Sábado",
+    ];
+
+    return dias[
+      new Date().getDay()
+    ];
+  }
+
+  useEffect(() => {
+    if (!diaHoje) {
+      setRefeicao(null);
+      return;
+    }
+
+    const consulta = query(
+      collection(database, "NomePratos"),
+      where("dia", "==", diaHoje)
+    );
+
+    const cancelarListener = onSnapshot(
+      consulta,
+      (snapshot) => {
+        const lista = [];
+
+        snapshot.forEach((documento) => {
+          const dados = documento.data();
+
+          if (dados.ativo !== false) {
+            lista.push({
+              id: documento.id,
+              ...dados,
+            });
+          }
+        });
+
+        const refeicaoDoDia =
+          lista.find((item) => item.tipo === "Almoço") ||
+          lista[0] ||
+          null;
+
+        setRefeicao(refeicaoDoDia);
+      },
+      (erro) => {
+        console.log("Erro ao carregar refeição:", erro);
+      }
+    );
+
+    return () => cancelarListener();
+  }, [diaHoje]);
+
+  useEffect(() => {
+    const consulta = query(
+      collection(
+        database,
+        "confirmacoes"
+      ),
+
+      where(
+        "data",
+        "==",
+        dataHoje
+      )
+    );
+
+    const cancelarListener =
+      onSnapshot(
+        consulta,
+
+        (snapshot) => {
+          const lista = [];
+
+          snapshot.forEach(
+            (documento) => {
+              lista.push({
+                id:
+                  documento.id,
+
+                ...documento.data(),
+              });
+            }
+          );
+
+          setConfirmacoes(
+            lista
+          );
+
+          setCarregando(
+            false
+          );
+        },
+
+        (erro) => {
+          console.log(
+            "Erro ao buscar confirmações:",
+            erro
+          );
+
+          setCarregando(
+            false
+          );
+        }
+      );
+
+    return () => {
+      cancelarListener();
+    };
+  }, [dataHoje]);
+
+  useEffect(() => {
+    const consulta = query(
+      collection(
+        database,
+        "feedbacks"
+      ),
+
+      where(
+        "data",
+        "==",
+        dataHoje
+      )
+    );
+
+    const cancelarListener =
+      onSnapshot(
+        consulta,
+
+        (snapshot) => {
+          const lista = [];
+
+          snapshot.forEach(
+            (documento) => {
+              lista.push({
+                id:
+                  documento.id,
+
+                ...documento.data(),
+              });
+            }
+          );
+
+          lista.sort(
+            (a, b) => {
+              const tempoA =
+                a.dataResposta
+                  ?.seconds ||
+                a.criadoEm
+                  ?.seconds ||
+                0;
+
+              const tempoB =
+                b.dataResposta
+                  ?.seconds ||
+                b.criadoEm
+                  ?.seconds ||
+                0;
+
+              return (
+                tempoB -
+                tempoA
+              );
+            }
+          );
+
+          setFeedbacks(
+            lista
+          );
+        },
+
+        (erro) => {
+          console.log(
+            "Erro ao buscar feedbacks:",
+            erro
+          );
+        }
+      );
+
+    return () => {
+      cancelarListener();
+    };
+  }, [dataHoje]);
+
+  const confirmados =
+    confirmacoes.filter(
+      (item) =>
+        item.vaiConsumir ===
+        true
+    ).length;
+
+  const recusados =
+    confirmacoes.filter(
+      (item) =>
+        item.vaiConsumir ===
+        false
+    ).length;
+
+  const totalRespostas =
+    confirmacoes.length;
+
+  const porcentagemConfirmados =
+    totalRespostas > 0
+      ? Math.round(
+          (confirmados /
+            totalRespostas) *
+            100
+        )
+      : 0;
+
+  const porcentagemRecusados =
+    totalRespostas > 0
+      ? Math.round(
+          (recusados /
+            totalRespostas) *
+            100
+        )
+      : 0;
+
+  const feedbacksComNota =
+    feedbacks.filter(
+      (item) =>
+        typeof item.nota ===
+        "number"
+    );
+
+  let notaMedia = 0;
+
+  if (
+    feedbacksComNota.length >
+    0
+  ) {
+    const soma =
+      feedbacksComNota.reduce(
+        (total, item) =>
+          total + item.nota,
+        0
+      );
+
+    notaMedia =
+      soma /
+      feedbacksComNota.length;
+  }
+
+  function pegarEmoji(
+    feedback
+  ) {
+    if (feedback.emoji) {
+      return feedback.emoji;
+    }
+
+    if (
+      feedback.nota === 5
+    ) {
+      return "😍";
+    }
+
+    if (
+      feedback.nota === 4
+    ) {
+      return "🙂";
+    }
+
+    if (
+      feedback.nota === 3
+    ) {
+      return "😐";
+    }
+
+    if (
+      feedback.nota <= 2
+    ) {
+      return "🙁";
+    }
+
+    return "💬";
+  }
+
+  if (carregando) {
+    return (
+      <SafeAreaView
+        style={estilos.tela}
+      >
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor="#F6FAF1"
+        />
+
+        <View
+          style={
+            estilos.carregando
+          }
+        >
+          <ActivityIndicator
+            size="large"
+            color="#2F6B4F"
+          />
+
+          <Text
+            style={
+              estilos.textoCarregando
+            }
+          >
+            Carregando dados...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
-    <SafeAreaView style={estilos.tela}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F6FAF1" />
+    <SafeAreaView
+      style={estilos.tela}
+    >
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F6FAF1"
+      />
 
       <ScrollView
         style={estilos.rolagem}
-        contentContainerStyle={estilos.conteudoRolagem}
-        showsVerticalScrollIndicator={false}
+        contentContainerStyle={
+          estilos.conteudoRolagem
+        }
+        showsVerticalScrollIndicator={
+          false
+        }
       >
-        <View style={estilos.cabecalho}>
-          <View style={estilos.seloAdmin}>
-            <Text style={estilos.textoSeloAdmin}>🛡️ ADMINISTRADOR</Text>
-          </View>
-          <Text style={estilos.subtituloCabecalho}>Terça-feira, 04/08 · Almoço</Text>
-          <Text style={estilos.titulo}>Feedback dos alunos</Text>
-        </View>
-
-        <View style={estilos.linhaEstatisticas}>
-          <View style={estilos.cartaoEstatistica}>
-            <Text style={estilos.valorEstatistica}>4.2</Text>
-            <Text style={estilos.rotuloEstatistica}>NOTA{`\n`}MÉDIA</Text>
-          </View>
-
-          <View style={estilos.cartaoEstatistica}>
-            <Text style={estilos.valorEstatistica}>186</Text>
-            <Text style={estilos.rotuloEstatistica}>RESPOSTAS{`\n`}HOJE</Text>
-          </View>
-
-          <View style={estilos.cartaoEstatistica}>
-            <Text style={estilos.valorAlerta}>-18%</Text>
-            <Text style={estilos.rotuloEstatistica}>DESPERDÍCIO{`\n`}NA SEMANA</Text>
-          </View>
-        </View>
-
-        <View style={estilos.cartaoAvaliacao}>
-          <View style={estilos.cabecalhoAvaliacao}>
-            <Text style={estilos.notaMedia}>
-              4.2<Text style={estilos.notaMaxima}>/5</Text>
+        <View
+          style={
+            estilos.cabecalho
+          }
+        >
+          <View
+            style={
+              estilos.seloAdmin
+            }
+          >
+            <Text
+              style={
+                estilos.textoSeloAdmin
+              }
+            >
+              🛡️ ADMINISTRADOR
             </Text>
-            <Text style={estilos.tituloAvaliacao}>COMO FOI O ALMOÇO DE HOJE</Text>
           </View>
 
-          <View style={estilos.linhaBarra}>
-            <Text style={estilos.emojiAvaliacao}>😍</Text>
-            <View style={estilos.trilhoBarra}>
-              <View style={estilos.barraExcelente} />
-            </View>
-            <Text style={estilos.porcentagem}>38%</Text>
-          </View>
-
-          <View style={estilos.linhaBarra}>
-            <Text style={estilos.emojiAvaliacao}>🙂</Text>
-            <View style={estilos.trilhoBarra}>
-              <View style={estilos.barraBoa} />
-            </View>
-            <Text style={estilos.porcentagem}>44%</Text>
-          </View>
-
-          <View style={estilos.linhaBarra}>
-            <Text style={estilos.emojiAvaliacao}>😐</Text>
-            <View style={estilos.trilhoBarra}>
-              <View style={estilos.barraRegular} />
-            </View>
-            <Text style={estilos.porcentagem}>12%</Text>
-          </View>
-
-          <View style={estilos.ultimaLinhaBarra}>
-            <Text style={estilos.emojiAvaliacao}>🙁</Text>
-            <View style={estilos.trilhoBarra}>
-              <View style={estilos.barraRuim} />
-            </View>
-            <Text style={estilos.porcentagem}>6%</Text>
-          </View>
-        </View>
-
-        <Text style={estilos.tituloSecao}>COMENTÁRIOS RECENTES</Text>
-
-        <View style={estilos.cartaoComentario}>
-          <View style={estilos.cabecalhoComentario}>
-            <Text style={estilos.nomeAluno}>
-              Sofia L. <Text style={estilos.turmaAluno}>· 7º B</Text>
-            </Text>
-            <Text style={estilos.emojiComentario}>🙂</Text>
-          </View>
-          <Text style={estilos.textoComentario}>
-            Tava bem gostoso hoje, só achei que faltou um pouco de tempero no
-            frango.
+          <Text
+            style={
+              estilos.subtituloCabecalho
+            }
+          >
+            {pegarDiaSemana()},{" "}
+            {formatarData(
+              dataHoje
+            )}
+            {" · "}
+            {refeicao?.tipo ||
+              "Refeição"}
           </Text>
-          <View style={estilos.linhaEtiquetas}>
-            <View style={estilos.etiqueta}>
-              <Text style={estilos.textoEtiqueta}>Tinha bastante comida</Text>
-            </View>
-            <View style={estilos.etiqueta}>
-              <Text style={estilos.textoEtiqueta}>Pouco tempero</Text>
-            </View>
+
+          <Text
+            style={
+              estilos.titulo
+            }
+          >
+            Feedback dos alunos
+          </Text>
+
+          {refeicao && (
+            <Text
+              style={
+                estilos.nomeRefeicao
+              }
+            >
+              {refeicao.icone ||
+                "🍛"}{" "}
+              {refeicao.nome}
+            </Text>
+          )}
+        </View>
+
+        <View
+          style={
+            estilos.linhaEstatisticas
+          }
+        >
+          <View
+            style={
+              estilos.cartaoEstatistica
+            }
+          >
+            <Text
+              style={
+                estilos.valorEstatistica
+              }
+            >
+              {confirmados}
+            </Text>
+
+            <Text
+              style={
+                estilos.rotuloEstatistica
+              }
+            >
+              VÃO{"\n"}
+              COMER
+            </Text>
+          </View>
+
+          <View
+            style={
+              estilos.cartaoEstatistica
+            }
+          >
+            <Text
+              style={
+                estilos.valorAlerta
+              }
+            >
+              {recusados}
+            </Text>
+
+            <Text
+              style={
+                estilos.rotuloEstatistica
+              }
+            >
+              NÃO VÃO{"\n"}
+              COMER
+            </Text>
+          </View>
+
+          <View
+            style={
+              estilos.cartaoEstatistica
+            }
+          >
+            <Text
+              style={
+                estilos.valorTotal
+              }
+            >
+              {totalRespostas}
+            </Text>
+
+            <Text
+              style={
+                estilos.rotuloEstatistica
+              }
+            >
+              RESPOSTAS{"\n"}
+              HOJE
+            </Text>
           </View>
         </View>
 
-        <View style={estilos.cartaoComentario}>
-          <View style={estilos.cabecalhoComentario}>
-            <Text style={estilos.nomeAluno}>
-              Enzo M. <Text style={estilos.turmaAluno}>· 6º A</Text>
+        <View
+          style={
+            estilos.cartaoAvaliacao
+          }
+        >
+          <View
+            style={
+              estilos.cabecalhoAvaliacao
+            }
+          >
+            <Text
+              style={
+                estilos.notaMedia
+              }
+            >
+              {
+                porcentagemConfirmados
+              }
+              <Text
+                style={
+                  estilos.notaMaxima
+                }
+              >
+                %
+              </Text>
             </Text>
-            <Text style={estilos.emojiComentario}>😍</Text>
+
+            <Text
+              style={
+                estilos.tituloAvaliacao
+              }
+            >
+              CONFIRMAÇÕES DA
+              REFEIÇÃO DE HOJE
+            </Text>
           </View>
-          <Text style={estilos.textoComentario}>
-            Amei o frango grelhado, pode repetir esse prato semana que vem!
-          </Text>
-          <View style={estilos.linhaEtiquetas}>
-            <View style={estilos.etiqueta}>
-              <Text style={estilos.textoEtiqueta}>Repetir esse prato</Text>
+
+          <View
+            style={
+              estilos.linhaBarra
+            }
+          >
+            <Text
+              style={
+                estilos.emojiAvaliacao
+              }
+            >
+              ✅
+            </Text>
+
+            <View
+              style={
+                estilos.trilhoBarra
+              }
+            >
+              <View
+                style={[
+                  estilos.barraConfirmados,
+
+                  {
+                    width: `${porcentagemConfirmados}%`,
+                  },
+                ]}
+              />
             </View>
+
+            <Text
+              style={
+                estilos.porcentagem
+              }
+            >
+              {
+                porcentagemConfirmados
+              }
+              %
+            </Text>
+          </View>
+
+          <View
+            style={
+              estilos.ultimaLinhaBarra
+            }
+          >
+            <Text
+              style={
+                estilos.emojiAvaliacao
+              }
+            >
+              ✖️
+            </Text>
+
+            <View
+              style={
+                estilos.trilhoBarra
+              }
+            >
+              <View
+                style={[
+                  estilos.barraRecusados,
+
+                  {
+                    width: `${porcentagemRecusados}%`,
+                  },
+                ]}
+              />
+            </View>
+
+            <Text
+              style={
+                estilos.porcentagem
+              }
+            >
+              {
+                porcentagemRecusados
+              }
+              %
+            </Text>
           </View>
         </View>
+
+        {feedbacksComNota.length >
+          0 && (
+          <View
+            style={
+              estilos.resumoFeedback
+            }
+          >
+            <Text
+              style={
+                estilos.emojiNota
+              }
+            >
+              ⭐
+            </Text>
+
+            <View>
+              <Text
+                style={
+                  estilos.textoNotaTitulo
+                }
+              >
+                Nota média
+              </Text>
+
+              <Text
+                style={
+                  estilos.textoNota
+                }
+              >
+                {notaMedia.toFixed(
+                  1
+                )}
+                /5 ·{" "}
+                {
+                  feedbacksComNota.length
+                }{" "}
+                avaliações
+              </Text>
+            </View>
+          </View>
+        )}
+
+        <Text
+          style={
+            estilos.tituloSecao
+          }
+        >
+          COMENTÁRIOS RECENTES
+        </Text>
+
+        {feedbacks.length ===
+          0 && (
+          <View
+            style={
+              estilos.semComentarios
+            }
+          >
+            <Text
+              style={
+                estilos.iconeSemComentarios
+              }
+            >
+              💬
+            </Text>
+
+            <Text
+              style={
+                estilos.tituloSemComentarios
+              }
+            >
+              Nenhum comentário ainda
+            </Text>
+
+            <Text
+              style={
+                estilos.textoSemComentarios
+              }
+            >
+              Os feedbacks dos alunos
+              aparecerão aqui depois
+              que forem enviados.
+            </Text>
+          </View>
+        )}
+
+        {feedbacks.map(
+          (feedback) => (
+            <View
+              key={feedback.id}
+              style={
+                estilos.cartaoComentario
+              }
+            >
+              <View
+                style={
+                  estilos.cabecalhoComentario
+                }
+              >
+                <Text
+                  style={
+                    estilos.nomeAluno
+                  }
+                >
+                  {feedback.alunoNome ||
+                    "Aluno"}
+
+                  {feedback.turma ? (
+                    <Text
+                      style={
+                        estilos.turmaAluno
+                      }
+                    >
+                      {" "}
+                      ·{" "}
+                      {
+                        feedback.turma
+                      }
+                    </Text>
+                  ) : null}
+                </Text>
+
+                <Text
+                  style={
+                    estilos.emojiComentario
+                  }
+                >
+                  {pegarEmoji(
+                    feedback
+                  )}
+                </Text>
+              </View>
+
+              {feedback.comentario ? (
+                <Text
+                  style={
+                    estilos.textoComentario
+                  }
+                >
+                  {
+                    feedback.comentario
+                  }
+                </Text>
+              ) : (
+                <Text
+                  style={
+                    estilos.textoComentarioVazio
+                  }
+                >
+                  Avaliação enviada
+                  sem comentário.
+                </Text>
+              )}
+
+              {Array.isArray(
+                feedback.etiquetas
+              ) &&
+                feedback.etiquetas
+                  .length > 0 && (
+                  <View
+                    style={
+                      estilos.linhaEtiquetas
+                    }
+                  >
+                    {feedback.etiquetas.map(
+                      (
+                        etiqueta,
+                        index
+                      ) => (
+                        <View
+                          key={`${feedback.id}-${index}`}
+                          style={
+                            estilos.etiqueta
+                          }
+                        >
+                          <Text
+                            style={
+                              estilos.textoEtiqueta
+                            }
+                          >
+                            {
+                              etiqueta
+                            }
+                          </Text>
+                        </View>
+                      )
+                    )}
+                  </View>
+                )}
+            </View>
+          )
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const estilos = StyleSheet.create({
-  tela: {
-    flex: 1,
-    backgroundColor: '#F6FAF1',
-  },
-  rolagem: {
-    flex: 1,
-  },
-  conteudoRolagem: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 24,
-  },
-  cabecalho: {
-    marginBottom: 18,
-  },
-  seloAdmin: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#204A37',
-    borderRadius: 100,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    marginBottom: 9,
-  },
-  textoSeloAdmin: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  subtituloCabecalho: {
-    color: '#5B6B5C',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  titulo: {
-    color: '#204A37',
-    fontSize: 25,
-    fontWeight: '800',
-  },
-  linhaEstatisticas: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
-  },
-  cartaoEstatistica: {
-    flex: 1,
-    minHeight: 80,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
-    borderWidth: 1.5,
-    borderRadius: 16,
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-  },
-  valorEstatistica: {
-    color: '#2F6B4F',
-    fontSize: 19,
-    fontWeight: '800',
-    marginBottom: 3,
-  },
-  valorAlerta: {
-    color: '#E85D4C',
-    fontSize: 19,
-    fontWeight: '800',
-    marginBottom: 3,
-  },
-  rotuloEstatistica: {
-    color: '#5B6B5C',
-    fontSize: 8,
-    fontWeight: '800',
-    lineHeight: 11,
-    textAlign: 'center',
-  },
-  cartaoAvaliacao: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
-    borderWidth: 1.5,
-    borderRadius: 18,
-    padding: 15,
-    marginBottom: 18,
-  },
-  cabecalhoAvaliacao: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    marginBottom: 14,
-  },
-  notaMedia: {
-    color: '#204A37',
-    fontSize: 32,
-    fontWeight: '900',
-  },
-  notaMaxima: {
-    color: '#5B6B5C',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  tituloAvaliacao: {
-    flex: 1,
-    color: '#5B6B5C',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-    lineHeight: 14,
-  },
-  linhaBarra: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginBottom: 9,
-  },
-  ultimaLinhaBarra: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-  emojiAvaliacao: {
-    width: 22,
-    fontSize: 17,
-  },
-  trilhoBarra: {
-    flex: 1,
-    height: 8,
-    overflow: 'hidden',
-    backgroundColor: '#DCE8D2',
-    borderRadius: 100,
-  },
-  barraExcelente: {
-    width: '38%',
-    height: '100%',
-    backgroundColor: '#2F6B4F',
-    borderRadius: 100,
-  },
-  barraBoa: {
-    width: '44%',
-    height: '100%',
-    backgroundColor: '#F2A93B',
-    borderRadius: 100,
-  },
-  barraRegular: {
-    width: '12%',
-    height: '100%',
-    backgroundColor: '#C9B98A',
-    borderRadius: 100,
-  },
-  barraRuim: {
-    width: '6%',
-    height: '100%',
-    backgroundColor: '#E85D4C',
-    borderRadius: 100,
-  },
-  porcentagem: {
-    width: 34,
-    color: '#5B6B5C',
-    fontSize: 10,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  tituloSecao: {
-    color: '#5B6B5C',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    marginBottom: 10,
-  },
-  cartaoComentario: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DCE8D2',
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 13,
-    marginBottom: 10,
-  },
-  cabecalhoComentario: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  nomeAluno: {
-    color: '#1E2B21',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  turmaAluno: {
-    color: '#5B6B5C',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  emojiComentario: {
-    fontSize: 18,
-  },
-  textoComentario: {
-    color: '#5B6B5C',
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  linhaEtiquetas: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 9,
-  },
-  etiqueta: {
-    backgroundColor: '#EFF6E7',
-    borderRadius: 100,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-  },
-  textoEtiqueta: {
-    color: '#2F6B4F',
-    fontSize: 9,
-    fontWeight: '800',
-  }
-});
+const estilos =
+  StyleSheet.create({
+    tela: {
+      flex: 1,
+      backgroundColor:
+        "#F6FAF1",
+    },
+
+    rolagem: {
+      flex: 1,
+    },
+
+    conteudoRolagem: {
+      paddingHorizontal: 20,
+      paddingTop: 18,
+      paddingBottom: 24,
+    },
+
+    carregando: {
+      flex: 1,
+      justifyContent:
+        "center",
+      alignItems: "center",
+    },
+
+    textoCarregando: {
+      marginTop: 10,
+      color: "#5B6B5C",
+      fontWeight: "600",
+    },
+
+    cabecalho: {
+      marginBottom: 18,
+    },
+
+    seloAdmin: {
+      alignSelf:
+        "flex-start",
+      backgroundColor:
+        "#204A37",
+      borderRadius: 100,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
+      marginBottom: 9,
+    },
+
+    textoSeloAdmin: {
+      color: "#FFFFFF",
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.4,
+    },
+
+    subtituloCabecalho: {
+      color: "#5B6B5C",
+      fontSize: 12,
+      fontWeight: "600",
+      marginBottom: 2,
+    },
+
+    titulo: {
+      color: "#204A37",
+      fontSize: 25,
+      fontWeight: "800",
+    },
+
+    nomeRefeicao: {
+      color: "#5B6B5C",
+      fontSize: 12,
+      fontWeight: "600",
+      marginTop: 5,
+    },
+
+    linhaEstatisticas: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 14,
+    },
+
+    cartaoEstatistica: {
+      flex: 1,
+      minHeight: 80,
+      alignItems: "center",
+      justifyContent:
+        "center",
+      backgroundColor:
+        "#FFFFFF",
+      borderColor:
+        "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 16,
+      paddingHorizontal: 6,
+      paddingVertical: 10,
+    },
+
+    valorEstatistica: {
+      color: "#2F6B4F",
+      fontSize: 19,
+      fontWeight: "800",
+      marginBottom: 3,
+    },
+
+    valorAlerta: {
+      color: "#E85D4C",
+      fontSize: 19,
+      fontWeight: "800",
+      marginBottom: 3,
+    },
+
+    valorTotal: {
+      color: "#204A37",
+      fontSize: 19,
+      fontWeight: "800",
+      marginBottom: 3,
+    },
+
+    rotuloEstatistica: {
+      color: "#5B6B5C",
+      fontSize: 8,
+      fontWeight: "800",
+      lineHeight: 11,
+      textAlign: "center",
+    },
+
+    cartaoAvaliacao: {
+      backgroundColor:
+        "#FFFFFF",
+      borderColor:
+        "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 18,
+      padding: 15,
+      marginBottom: 14,
+    },
+
+    cabecalhoAvaliacao: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 14,
+      marginBottom: 14,
+    },
+
+    notaMedia: {
+      color: "#204A37",
+      fontSize: 32,
+      fontWeight: "900",
+    },
+
+    notaMaxima: {
+      color: "#5B6B5C",
+      fontSize: 13,
+      fontWeight: "600",
+    },
+
+    tituloAvaliacao: {
+      flex: 1,
+      color: "#5B6B5C",
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 0.7,
+      lineHeight: 14,
+    },
+
+    linhaBarra: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+      marginBottom: 9,
+    },
+
+    ultimaLinhaBarra: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 9,
+    },
+
+    emojiAvaliacao: {
+      width: 22,
+      fontSize: 17,
+    },
+
+    trilhoBarra: {
+      flex: 1,
+      height: 8,
+      overflow: "hidden",
+      backgroundColor:
+        "#DCE8D2",
+      borderRadius: 100,
+    },
+
+    barraConfirmados: {
+      height: "100%",
+      backgroundColor:
+        "#2F6B4F",
+      borderRadius: 100,
+    },
+
+    barraRecusados: {
+      height: "100%",
+      backgroundColor:
+        "#E85D4C",
+      borderRadius: 100,
+    },
+
+    porcentagem: {
+      width: 34,
+      color: "#5B6B5C",
+      fontSize: 10,
+      fontWeight: "700",
+      textAlign: "right",
+    },
+
+    resumoFeedback: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor:
+        "#FFFFFF",
+      borderColor:
+        "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 16,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      marginBottom: 18,
+    },
+
+    emojiNota: {
+      fontSize: 25,
+      marginRight: 10,
+    },
+
+    textoNotaTitulo: {
+      color: "#5B6B5C",
+      fontSize: 10,
+      fontWeight: "800",
+      textTransform:
+        "uppercase",
+    },
+
+    textoNota: {
+      color: "#204A37",
+      fontSize: 16,
+      fontWeight: "800",
+      marginTop: 2,
+    },
+
+    tituloSecao: {
+      color: "#5B6B5C",
+      fontSize: 11,
+      fontWeight: "800",
+      letterSpacing: 0.8,
+      marginBottom: 10,
+    },
+
+    cartaoComentario: {
+      backgroundColor:
+        "#FFFFFF",
+      borderColor:
+        "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 16,
+      padding: 13,
+      marginBottom: 10,
+    },
+
+    cabecalhoComentario: {
+      flexDirection: "row",
+      justifyContent:
+        "space-between",
+      alignItems: "center",
+      marginBottom: 6,
+    },
+
+    nomeAluno: {
+      color: "#1E2B21",
+      fontSize: 13,
+      fontWeight: "800",
+    },
+
+    turmaAluno: {
+      color: "#5B6B5C",
+      fontSize: 11,
+      fontWeight: "600",
+    },
+
+    emojiComentario: {
+      fontSize: 18,
+    },
+
+    textoComentario: {
+      color: "#5B6B5C",
+      fontSize: 12,
+      lineHeight: 18,
+    },
+
+    textoComentarioVazio: {
+      color: "#8A968B",
+      fontSize: 11,
+      fontStyle: "italic",
+    },
+
+    linhaEtiquetas: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 6,
+      marginTop: 9,
+    },
+
+    etiqueta: {
+      backgroundColor:
+        "#EFF6E7",
+      borderRadius: 100,
+      paddingHorizontal: 9,
+      paddingVertical: 5,
+    },
+
+    textoEtiqueta: {
+      color: "#2F6B4F",
+      fontSize: 9,
+      fontWeight: "800",
+    },
+
+    semComentarios: {
+      backgroundColor:
+        "#FFFFFF",
+      borderColor:
+        "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 16,
+      paddingVertical: 25,
+      paddingHorizontal: 20,
+      alignItems: "center",
+    },
+
+    iconeSemComentarios: {
+      fontSize: 30,
+      marginBottom: 7,
+    },
+
+    tituloSemComentarios: {
+      color: "#204A37",
+      fontSize: 14,
+      fontWeight: "800",
+    },
+
+    textoSemComentarios: {
+      color: "#5B6B5C",
+      fontSize: 11,
+      lineHeight: 16,
+      textAlign: "center",
+      marginTop: 4,
+    },
+  });
