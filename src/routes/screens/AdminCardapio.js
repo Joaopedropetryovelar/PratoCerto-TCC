@@ -111,6 +111,12 @@ function pegarDiaInicial(dias) {
   return dias[0].id;
 }
 
+const turnos = [
+  { id: 'manha', nome: 'Manhã', tipo: 'Lanche da manhã', icone: '☀️' },
+  { id: 'tarde', nome: 'Tarde', tipo: 'Lanche da tarde', icone: '🌤️' },
+  { id: 'noite', nome: 'Noite', tipo: 'Lanche da noite', icone: '🌙' },
+];
+
 export default function AdminCardapio() {
   const dias = gerarDiasDaSemanaAtual();
 
@@ -119,6 +125,7 @@ export default function AdminCardapio() {
   );
 
   const [refeicoesPorDia, setRefeicoesPorDia] = useState({});
+  const [turnoEscolhido, setTurnoEscolhido] = useState('manha');
   const [nomePrato, setNomePrato] = useState('');
   const [modalAdicionar, setModalAdicionar] = useState(false);
   const [pratoEditando, setPratoEditando] = useState(null);
@@ -143,6 +150,7 @@ export default function AdminCardapio() {
               id: documento.id,
               icone: dados.icone || '🍽️',
               tipo: dados.tipo || 'Almoço',
+              turno: dados.turno || 'manha',
               nome: dados.nome,
               descricao: dados.descricao || '',
               horarioLimite: dados.horarioLimite || '09:00',
@@ -164,7 +172,15 @@ export default function AdminCardapio() {
     return () => pararDeEscutar();
   }, []);
 
-  const listaDoDia = refeicoesPorDia[diaEscolhido] || [];
+  const listaCompletaDoDia = refeicoesPorDia[diaEscolhido] || [];
+
+  const listaDoDia = listaCompletaDoDia.filter(
+    (refeicao) => (refeicao.turno || 'manha') === turnoEscolhido
+  );
+
+  const turnoSelecionado = turnos.find(
+    (turno) => turno.id === turnoEscolhido
+  );
 
   const diaSelecionado = dias.find(
     (dia) => dia.id === diaEscolhido
@@ -179,6 +195,7 @@ export default function AdminCardapio() {
   function editarRefeicao(refeicao) {
     setPratoEditando(refeicao);
     setNomePrato(refeicao.nome);
+    setTurnoEscolhido(refeicao.turno || 'manha');
     setModalAdicionar(true);
   }
 
@@ -200,6 +217,8 @@ export default function AdminCardapio() {
           doc(database, 'NomePratos', pratoEditando.id),
           {
             nome: nomePrato.trim(),
+            turno: turnoEscolhido,
+            tipo: turnoSelecionado?.tipo || 'Lanche',
           }
         );
 
@@ -212,7 +231,8 @@ export default function AdminCardapio() {
           collection(database, 'NomePratos'),
           {
             nome: nomePrato.trim(),
-            tipo: 'Almoço',
+            tipo: turnoSelecionado?.tipo || 'Lanche',
+            turno: turnoEscolhido,
             data: diaEscolhido,
             diaSemana: diaSelecionado?.nome || '',
             icone: '🍛',
@@ -400,9 +420,42 @@ export default function AdminCardapio() {
           {formatarTituloDoDia(diaSelecionado?.data)}
         </Text>
 
+        <View style={estilos.linhaTurnos}>
+          {turnos.map((turno) => {
+            const ativo = turno.id === turnoEscolhido;
+
+            return (
+              <TouchableOpacity
+                key={turno.id}
+                style={[
+                  estilos.botaoTurno,
+                  ativo && estilos.botaoTurnoAtivo,
+                ]}
+                onPress={() => setTurnoEscolhido(turno.id)}
+              >
+                <Text style={estilos.iconeTurno}>
+                  {turno.icone}
+                </Text>
+                <Text
+                  style={[
+                    estilos.textoTurno,
+                    ativo && estilos.textoTurnoAtivo,
+                  ]}
+                >
+                  {turno.nome}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <Text style={estilos.tituloTurno}>
+          {turnoSelecionado?.tipo}
+        </Text>
+
         {listaDoDia.length === 0 && (
           <Text style={estilos.textoVazio}>
-            Nenhuma refeição cadastrada para este dia.
+            Nenhuma refeição cadastrada neste turno.
           </Text>
         )}
 
@@ -451,7 +504,7 @@ export default function AdminCardapio() {
           onPress={adicionarRefeicao}
         >
           <Text style={estilos.botaoAdicionarTexto}>
-            + Adicionar refeição a este dia
+            + Adicionar refeição neste turno
           </Text>
         </TouchableOpacity>
 
@@ -574,6 +627,49 @@ const estilos = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginTop: 6,
+    marginBottom: 10,
+  },
+
+  linhaTurnos: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  botaoTurno: {
+    flex: 1,
+    backgroundColor: cores.branco,
+    borderWidth: 1.5,
+    borderColor: cores.linha,
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+
+  botaoTurnoAtivo: {
+    backgroundColor: cores.verdeClaro,
+    borderColor: cores.verde,
+  },
+
+  iconeTurno: {
+    fontSize: 18,
+    marginBottom: 3,
+  },
+
+  textoTurno: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: cores.textoClaro,
+  },
+
+  textoTurnoAtivo: {
+    color: cores.verdeEscuro,
+  },
+
+  tituloTurno: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: cores.verdeEscuro,
     marginBottom: 10,
   },
 

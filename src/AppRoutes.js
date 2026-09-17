@@ -30,7 +30,7 @@ function MenuAluno() {
         name="Inicio"
         component={TelaHomeAluno}
         options={{
-          title: "Início",
+          title: "Cardápio",
 
           tabBarIcon: ({ focused: estaSelecionado }) => (
             <Text

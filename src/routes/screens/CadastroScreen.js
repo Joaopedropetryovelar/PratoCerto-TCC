@@ -32,6 +32,7 @@ export default function CadastroScreen({ navigation }) {
   const [nome, setNome] = useState("");
   const [matricula, setMatricula] = useState("");
   const [turma, setTurma] = useState("");
+  const [turno, setTurno] = useState("");
   const [escola, setEscola] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -45,6 +46,7 @@ export default function CadastroScreen({ navigation }) {
       !nome.trim() ||
       !matricula.trim() ||
       !turma.trim() ||
+      !turno ||
       !escola ||
       !email.trim() ||
       !senha
@@ -87,6 +89,7 @@ export default function CadastroScreen({ navigation }) {
     setNome("");
     setMatricula("");
     setTurma("");
+    setTurno("");
     setEscola("");
     setEmail("");
     setSenha("");
@@ -145,6 +148,9 @@ export default function CadastroScreen({ navigation }) {
 
           turma:
             turma.trim(),
+
+          turno:
+            turno,
 
           escola:
             escola,
@@ -331,6 +337,37 @@ export default function CadastroScreen({ navigation }) {
           placeholder="Digite sua turma"
           placeholderTextColor="#94A097"
         />
+
+        <Text style={styles.rotulo}>
+          Turno
+        </Text>
+
+        <View style={styles.linhaTurnos}>
+          {[
+            { id: "manha", nome: "Manhã", icone: "☀️" },
+            { id: "tarde", nome: "Tarde", icone: "🌤️" },
+            { id: "noite", nome: "Noite", icone: "🌙" },
+          ].map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.botaoTurno,
+                turno === item.id && styles.botaoTurnoAtivo,
+              ]}
+              onPress={() => setTurno(item.id)}
+            >
+              <Text style={styles.iconeTurno}>{item.icone}</Text>
+              <Text
+                style={[
+                  styles.textoTurno,
+                  turno === item.id && styles.textoTurnoAtivo,
+                ]}
+              >
+                {item.nome}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         <Text style={styles.rotulo}>
           Escola
@@ -593,6 +630,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#1E2B21",
     marginBottom: 15,
+  },
+
+  linhaTurnos: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 15,
+  },
+
+  botaoTurno: {
+    flex: 1,
+    minHeight: 48,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.3,
+    borderColor: "#D6E2D0",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 5,
+  },
+
+  botaoTurnoAtivo: {
+    backgroundColor: "#2F6B4F",
+    borderColor: "#2F6B4F",
+  },
+
+  iconeTurno: {
+    fontSize: 15,
+  },
+
+  textoTurno: {
+    fontSize: 12,
+    color: "#5B6B5C",
+    fontWeight: "700",
+  },
+
+  textoTurnoAtivo: {
+    color: "#FFFFFF",
   },
 
   campoEscola: {

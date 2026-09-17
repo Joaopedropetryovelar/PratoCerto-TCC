@@ -11,6 +11,7 @@ import {
   Text,
   View,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
 
 import {
@@ -29,6 +30,18 @@ export default function TelaDeFeedbackAdmin({
 }) {
   const [refeicao, setRefeicao] =
     useState(null);
+
+  const [refeicoesHoje, setRefeicoesHoje] =
+    useState([]);
+
+  const [turnoEscolhido, setTurnoEscolhido] =
+    useState("manha");
+
+  const turnos = [
+    { id: "manha", nome: "Manhã", icone: "☀️" },
+    { id: "tarde", nome: "Tarde", icone: "🌤️" },
+    { id: "noite", nome: "Noite", icone: "🌙" },
+  ];
 
   const [
     confirmacoes,
@@ -65,20 +78,6 @@ export default function TelaDeFeedbackAdmin({
   const dataHoje =
     pegarDataHoje();
 
-  function pegarIdDiaHoje() {
-    const dias = {
-      1: "seg",
-      2: "ter",
-      3: "qua",
-      4: "qui",
-      5: "sex",
-    };
-
-    return dias[new Date().getDay()] || null;
-  }
-
-  const diaHoje = pegarIdDiaHoje();
-
   function formatarData(data) {
     if (!data) {
       return "";
@@ -113,14 +112,9 @@ export default function TelaDeFeedbackAdmin({
   }
 
   useEffect(() => {
-    if (!diaHoje) {
-      setRefeicao(null);
-      return;
-    }
-
     const consulta = query(
       collection(database, "NomePratos"),
-      where("dia", "==", diaHoje)
+      where("data", "==", dataHoje)
     );
 
     const cancelarListener = onSnapshot(
@@ -135,24 +129,30 @@ export default function TelaDeFeedbackAdmin({
             lista.push({
               id: documento.id,
               ...dados,
+              turno: dados.turno || "manha",
             });
           }
         });
 
-        const refeicaoDoDia =
-          lista.find((item) => item.tipo === "Almoço") ||
-          lista[0] ||
-          null;
-
-        setRefeicao(refeicaoDoDia);
+        setRefeicoesHoje(lista);
       },
       (erro) => {
         console.log("Erro ao carregar refeição:", erro);
+        setRefeicoesHoje([]);
       }
     );
 
     return () => cancelarListener();
-  }, [diaHoje]);
+  }, [dataHoje]);
+
+  useEffect(() => {
+    const refeicaoDoTurno =
+      refeicoesHoje.find(
+        (item) => (item.turno || "manha") === turnoEscolhido
+      ) || null;
+
+    setRefeicao(refeicaoDoTurno);
+  }, [refeicoesHoje, turnoEscolhido]);
 
   useEffect(() => {
     const consulta = query(
@@ -285,22 +285,47 @@ export default function TelaDeFeedbackAdmin({
     };
   }, [dataHoje]);
 
-  const confirmados =
+  function pegarTurnoDoRegistro(registro) {
+    if (registro.turno) {
+      return registro.turno;
+    }
+
+    const refeicaoRelacionada =
+      refeicoesHoje.find(
+        (item) => item.id === registro.refeicaoId
+      );
+
+    return refeicaoRelacionada?.turno || "manha";
+  }
+
+  const confirmacoesDoTurno =
     confirmacoes.filter(
+      (item) =>
+        pegarTurnoDoRegistro(item) === turnoEscolhido
+    );
+
+  const feedbacksDoTurno =
+    feedbacks.filter(
+      (item) =>
+        pegarTurnoDoRegistro(item) === turnoEscolhido
+    );
+
+  const confirmados =
+    confirmacoesDoTurno.filter(
       (item) =>
         item.vaiConsumir ===
         true
     ).length;
 
   const recusados =
-    confirmacoes.filter(
+    confirmacoesDoTurno.filter(
       (item) =>
         item.vaiConsumir ===
         false
     ).length;
 
   const totalRespostas =
-    confirmacoes.length;
+    confirmacoesDoTurno.length;
 
   const porcentagemConfirmados =
     totalRespostas > 0
@@ -321,7 +346,7 @@ export default function TelaDeFeedbackAdmin({
       : 0;
 
   const feedbacksComNota =
-    feedbacks.filter(
+    feedbacksDoTurno.filter(
       (item) =>
         typeof item.nota ===
         "number"
@@ -458,6 +483,10 @@ export default function TelaDeFeedbackAdmin({
               dataHoje
             )}
             {" · "}
+            {turnos.find(
+              (item) => item.id === turnoEscolhido
+            )?.nome || "Turno"}
+            {" · "}
             {refeicao?.tipo ||
               "Refeição"}
           </Text>
@@ -481,6 +510,36 @@ export default function TelaDeFeedbackAdmin({
               {refeicao.nome}
             </Text>
           )}
+        </View>
+
+        <View style={estilos.linhaTurnos}>
+          {turnos.map((turno) => {
+            const ativo = turno.id === turnoEscolhido;
+
+            return (
+              <TouchableOpacity
+                key={turno.id}
+                style={[
+                  estilos.botaoTurno,
+                  ativo && estilos.botaoTurnoAtivo,
+                ]}
+                onPress={() => setTurnoEscolhido(turno.id)}
+              >
+                <Text style={estilos.iconeTurno}>
+                  {turno.icone}
+                </Text>
+
+                <Text
+                  style={[
+                    estilos.textoTurno,
+                    ativo && estilos.textoTurnoAtivo,
+                  ]}
+                >
+                  {turno.nome}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View
@@ -728,7 +787,7 @@ export default function TelaDeFeedbackAdmin({
           COMENTÁRIOS RECENTES
         </Text>
 
-        {feedbacks.length ===
+        {feedbacksDoTurno.length ===
           0 && (
           <View
             style={
@@ -763,7 +822,7 @@ export default function TelaDeFeedbackAdmin({
           </View>
         )}
 
-        {feedbacks.map(
+        {feedbacksDoTurno.map(
           (feedback) => (
             <View
               key={feedback.id}
@@ -945,6 +1004,44 @@ const estilos =
       fontSize: 12,
       fontWeight: "600",
       marginTop: 5,
+    },
+
+    linhaTurnos: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 14,
+    },
+
+    botaoTurno: {
+      flex: 1,
+      minHeight: 48,
+      backgroundColor: "#FFFFFF",
+      borderColor: "#DCE8D2",
+      borderWidth: 1.5,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      gap: 5,
+    },
+
+    botaoTurnoAtivo: {
+      backgroundColor: "#2F6B4F",
+      borderColor: "#2F6B4F",
+    },
+
+    iconeTurno: {
+      fontSize: 15,
+    },
+
+    textoTurno: {
+      color: "#5B6B5C",
+      fontSize: 11,
+      fontWeight: "800",
+    },
+
+    textoTurnoAtivo: {
+      color: "#FFFFFF",
     },
 
     linhaEstatisticas: {

@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   collection,
+  doc,
   onSnapshot,
 } from "firebase/firestore";
 
@@ -185,6 +186,13 @@ function pegarDiaInicial(
 }
 
 
+const turnos = [
+  { id: "manha", nome: "Manhã", tipo: "Lanche da manhã", icone: "☀️" },
+  { id: "tarde", nome: "Tarde", tipo: "Lanche da tarde", icone: "🌤️" },
+  { id: "noite", nome: "Noite", tipo: "Lanche da noite", icone: "🌙" },
+];
+
+
 export default function TelaHomeAluno({
   navigation,
   route,
@@ -249,6 +257,88 @@ export default function TelaHomeAluno({
   ] = useState({});
 
 
+  const [
+    turnoEscolhido,
+    setTurnoEscolhido,
+  ] = useState("manha");
+
+  const [
+    turnoAluno,
+    setTurnoAluno,
+  ] = useState(
+    params.turno ??
+      aluno.turno ??
+      null
+  );
+
+  const [
+    carregandoTurno,
+    setCarregandoTurno,
+  ] = useState(true);
+
+
+  useEffect(() => {
+    const usuarioLogado =
+      auth.currentUser;
+
+    if (!usuarioLogado) {
+      setCarregandoTurno(false);
+      return;
+    }
+
+    const usuarioRef = doc(
+      database,
+      "usuarios",
+      usuarioLogado.uid
+    );
+
+    const pararDeEscutarUsuario =
+      onSnapshot(
+        usuarioRef,
+        (snapshot) => {
+          if (snapshot.exists()) {
+            const dados =
+              snapshot.data();
+
+            const turnoSalvo =
+              dados.turno ||
+              params.turno ||
+              aluno.turno ||
+              null;
+
+            setTurnoAluno(
+              turnoSalvo
+            );
+
+            if (turnoSalvo) {
+              setTurnoEscolhido(
+                turnoSalvo
+              );
+            }
+          }
+
+          setCarregandoTurno(
+            false
+          );
+        },
+        (erro) => {
+          console.log(
+            "Erro ao carregar turno do aluno:",
+            erro
+          );
+
+          setCarregandoTurno(
+            false
+          );
+        }
+      );
+
+    return () => {
+      pararDeEscutarUsuario();
+    };
+  }, []);
+
+
   useEffect(() => {
     const pararDeEscutar =
       onSnapshot(
@@ -295,6 +385,10 @@ export default function TelaHomeAluno({
                   tipo:
                     dados.tipo ||
                     "Almoço",
+
+                  turno:
+                    dados.turno ||
+                    "manha",
 
                   icone:
                     dados.icone ||
@@ -348,6 +442,25 @@ export default function TelaHomeAluno({
     refeicoesPorDia[
       diaEscolhido
     ] || [];
+
+
+  const listaDoTurno =
+    turnoAluno
+      ? listaDoDia.filter(
+          (refeicao) =>
+            (refeicao.turno ||
+              "manha") ===
+            turnoAluno
+        )
+      : [];
+
+
+  const turnoSelecionado =
+    turnos.find(
+      (turno) =>
+        turno.id ===
+        turnoAluno
+    );
 
 
   const diaSelecionado =
@@ -490,7 +603,97 @@ export default function TelaHomeAluno({
         </Text>
 
 
-        {listaDoDia.length ===
+        <View
+          style={
+            estilos.linhaTurnos
+          }
+        >
+          {turnos.map(
+            (turno) => {
+              const ativo =
+                turno.id ===
+                turnoAluno;
+
+              const bloqueado =
+                turnoAluno &&
+                turno.id !==
+                  turnoAluno;
+
+              return (
+                <TouchableOpacity
+                  key={turno.id}
+                  style={[
+                    estilos.botaoTurno,
+                    ativo &&
+                      estilos.botaoTurnoAtivo,
+                    bloqueado &&
+                      estilos.botaoTurnoBloqueado,
+                  ]}
+                  disabled={
+                    bloqueado ||
+                    !turnoAluno
+                  }
+                  onPress={() => {
+                    if (
+                      turno.id ===
+                      turnoAluno
+                    ) {
+                      setTurnoEscolhido(
+                        turno.id
+                      );
+                    }
+                  }}
+                >
+                  <Text
+                    style={
+                      estilos.iconeTurno
+                    }
+                  >
+                    {turno.icone}
+                  </Text>
+
+                  <Text
+                    style={[
+                      estilos.textoTurno,
+                      ativo &&
+                        estilos.textoTurnoAtivo,
+                    ]}
+                  >
+                    {turno.nome}
+                  </Text>
+                </TouchableOpacity>
+              );
+            }
+          )}
+        </View>
+
+        {!carregandoTurno &&
+          !turnoAluno && (
+            <View
+              style={
+                estilos.avisoTurno
+              }
+            >
+              <Text
+                style={
+                  estilos.avisoTurnoTexto
+                }
+              >
+                Seu turno ainda não foi cadastrado. Atualize o campo "turno" no cadastro do aluno para liberar o cardápio correto.
+              </Text>
+            </View>
+          )}
+
+        <Text
+          style={
+            estilos.tituloTurno
+          }
+        >
+          {turnoSelecionado?.tipo}
+        </Text>
+
+
+        {listaDoTurno.length ===
         0 ? (
           <Text
             style={
@@ -498,12 +701,12 @@ export default function TelaHomeAluno({
             }
           >
             Nenhuma refeição
-            cadastrada para este
-            dia.
+            cadastrada neste
+            turno.
           </Text>
         ) : (
 
-          listaDoDia.map(
+          listaDoTurno.map(
             (refeicao) => (
 
               <TouchableOpacity
@@ -532,6 +735,9 @@ export default function TelaHomeAluno({
 
                       turma:
                         alunoTurma,
+
+                      turno:
+                        turnoAluno,
                     }
                   );
                 }}
@@ -724,6 +930,76 @@ const estilos =
       textTransform:
         "uppercase",
       letterSpacing: 0.5,
+      marginBottom: 10,
+    },
+
+    linhaTurnos: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 12,
+    },
+
+    botaoTurno: {
+      flex: 1,
+      backgroundColor:
+        cores.white,
+      borderWidth: 1.5,
+      borderColor:
+        cores.line,
+      borderRadius: 14,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+
+    botaoTurnoBloqueado: {
+    opacity: 0.35,
+  },
+
+  avisoTurno: {
+    backgroundColor: "#FFF7E8",
+    borderWidth: 1,
+    borderColor: "#F2D7A5",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 14,
+  },
+
+  avisoTurnoTexto: {
+    color: "#7A5A1B",
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "600",
+  },
+
+  botaoTurnoAtivo: {
+      backgroundColor:
+        cores.card,
+      borderColor:
+        cores.primary,
+    },
+
+    iconeTurno: {
+      fontSize: 18,
+      marginBottom: 3,
+    },
+
+    textoTurno: {
+      fontSize: 11,
+      fontWeight: "700",
+      color:
+        cores.inkSoft,
+    },
+
+    textoTurnoAtivo: {
+      color:
+        cores.primaryDark,
+    },
+
+    tituloTurno: {
+      fontSize: 12,
+      fontWeight: "800",
+      color:
+        cores.primaryDark,
       marginBottom: 10,
     },
 

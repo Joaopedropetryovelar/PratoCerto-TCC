@@ -65,6 +65,39 @@ export default function TelaDeConfirmacao({ navigation, route }) {
 
   const alunoTurma = String(params.turma ?? aluno.turma ?? "");
 
+  const [turnoAluno, setTurnoAluno] = useState(
+    params.turno ?? aluno.turno ?? null
+  );
+
+  useEffect(() => {
+    const usuarioLogado = auth.currentUser;
+
+    if (!usuarioLogado) return;
+
+    const usuarioRef = doc(
+      database,
+      "usuarios",
+      usuarioLogado.uid
+    );
+
+    const cancelarListener = onSnapshot(
+      usuarioRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const dados = snapshot.data();
+          setTurnoAluno(
+            dados.turno || params.turno || aluno.turno || null
+          );
+        }
+      },
+      (erro) => {
+        console.log("Erro ao carregar turno do aluno:", erro);
+      }
+    );
+
+    return () => cancelarListener();
+  }, []);
+
   function formatarData(data) {
     if (!data) return "";
 
@@ -119,6 +152,7 @@ export default function TelaDeConfirmacao({ navigation, route }) {
               nome: dados.nome || "Refeição do dia",
               descricao: dados.descricao || "",
               tipo: dados.tipo || "Almoço",
+              turno: dados.turno || "manha",
               icone: dados.icone || "🍽️",
               horarioLimite: dados.horarioLimite || "09:00",
               horarioFim: dados.horarioFim || "12:30",
@@ -128,9 +162,9 @@ export default function TelaDeConfirmacao({ navigation, route }) {
         });
 
         const refeicaoEncontrada =
-          lista.find((item) => item.tipo === "Almoço") ||
-          lista[0] ||
-          null;
+          lista.find(
+            (item) => (item.turno || "manha") === turnoAluno
+          ) || null;
 
         setRefeicao(refeicaoEncontrada);
         setCarregando(false);
@@ -143,7 +177,7 @@ export default function TelaDeConfirmacao({ navigation, route }) {
     );
 
     return () => cancelarListener();
-  }, [params.refeicao, dataHoje]);
+  }, [params.refeicao, dataHoje, turnoAluno]);
 
   useEffect(() => {
     if (!refeicao?.id || !alunoId) {
@@ -200,6 +234,25 @@ export default function TelaDeConfirmacao({ navigation, route }) {
       return;
     }
 
+    if (!turnoAluno) {
+      Alert.alert(
+        "Turno não cadastrado",
+        "Seu turno precisa estar definido no cadastro antes de confirmar uma refeição."
+      );
+      return;
+    }
+
+    if (
+      refeicao.turno &&
+      refeicao.turno !== turnoAluno
+    ) {
+      Alert.alert(
+        "Refeição de outro turno",
+        "Você só pode confirmar refeições do seu próprio turno."
+      );
+      return;
+    }
+
     if (salvando) return;
 
     try {
@@ -219,6 +272,7 @@ export default function TelaDeConfirmacao({ navigation, route }) {
           alunoId: alunoId,
           alunoNome: alunoNome,
           turma: alunoTurma,
+          turno: turnoAluno,
           refeicaoId: refeicao.id,
           refeicaoNome: refeicao.nome,
           tipoRefeicao: refeicao.tipo || "Almoço",

@@ -65,6 +65,39 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
 
   const alunoTurma = String(params.turma ?? aluno.turma ?? "");
 
+  const [turnoAluno, setTurnoAluno] = useState(
+    params.turno ?? aluno.turno ?? null
+  );
+
+  useEffect(() => {
+    const usuarioLogado = auth.currentUser;
+
+    if (!usuarioLogado) return;
+
+    const usuarioRef = doc(
+      database,
+      "usuarios",
+      usuarioLogado.uid
+    );
+
+    const cancelarListener = onSnapshot(
+      usuarioRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const dados = snapshot.data();
+          setTurnoAluno(
+            dados.turno || params.turno || aluno.turno || null
+          );
+        }
+      },
+      (erro) => {
+        console.log("Erro ao carregar turno do aluno:", erro);
+      }
+    );
+
+    return () => cancelarListener();
+  }, []);
+
   function pegarDataHoje() {
     const hoje = new Date();
     const ano = hoje.getFullYear();
@@ -117,6 +150,7 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
               nome: dados.nome || "Refeição do dia",
               descricao: dados.descricao || "",
               tipo: dados.tipo || "Almoço",
+              turno: dados.turno || "manha",
               icone: dados.icone || "🍽️",
               data: dados.data || dataHoje,
             });
@@ -124,7 +158,9 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
         });
 
         const refeicaoEncontrada =
-          lista.find((item) => item.tipo === "Almoço") || lista[0] || null;
+          lista.find(
+            (item) => (item.turno || "manha") === turnoAluno
+          ) || null;
 
         setRefeicao(refeicaoEncontrada);
         setCarregandoRefeicao(false);
@@ -137,7 +173,7 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
     );
 
     return () => cancelarListener();
-  }, [params.refeicao, dataHoje]);
+  }, [params.refeicao, dataHoje, turnoAluno]);
 
   // Escuta se o aluno já enviou uma avaliação hoje.
   useEffect(() => {
@@ -194,6 +230,25 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
       return;
     }
 
+    if (!turnoAluno) {
+      Alert.alert(
+        "Turno não cadastrado",
+        "Seu turno precisa estar definido no cadastro antes de enviar um feedback."
+      );
+      return;
+    }
+
+    if (
+      refeicao?.turno &&
+      refeicao.turno !== turnoAluno
+    ) {
+      Alert.alert(
+        "Refeição de outro turno",
+        "Você só pode avaliar a refeição do seu próprio turno."
+      );
+      return;
+    }
+
     if (!emojiEscolhido) {
       Alert.alert(
         "Escolha uma opção",
@@ -221,6 +276,7 @@ export default function TelaDeFeedbackAluno({ navigation, route }) {
           alunoId: alunoId,
           alunoNome: alunoNome,
           turma: alunoTurma,
+          turno: turnoAluno,
           refeicaoId: refeicao?.id || null,
           refeicaoNome: refeicao?.nome || null,
           data: dataHoje,
