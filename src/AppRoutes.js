@@ -11,6 +11,7 @@ import TelaCardapioAdmin from "./routes/screens/AdminCardapio";
 import TelaDeConfirmacao from "./routes/screens/TelaDeConfirmacao";
 import TelaPerfilAluno from "./routes/screens/TelaPerfilAluno";
 import TelaDeFeedbackAdmin from "./routes/screens/TelaDeFeedbackAdmin";
+import TelaDeFeedbackAluno from "./routes/screens/TelaFeedbackAluno";
 
 import ConsentimentoNavigator from "./routes/screens/ConsentimentoNavigator";
 
@@ -60,6 +61,26 @@ function MenuAluno() {
               }
             >
               ✅
+            </Text>
+          ),
+        }}
+      />
+
+      <NavegadorAbas.Screen
+        name="Feedback"
+        component={TelaDeFeedbackAluno}
+        options={{
+          title: "Feedback",
+
+          tabBarIcon: ({ focused: estaSelecionado }) => (
+            <Text
+              style={
+                estaSelecionado
+                  ? estilos.iconeSelecionado
+                  : estilos.iconeNaoSelecionado
+              }
+            >
+              💬
             </Text>
           ),
         }}
