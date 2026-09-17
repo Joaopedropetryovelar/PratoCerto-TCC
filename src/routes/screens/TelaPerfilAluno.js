@@ -141,14 +141,11 @@ export default function TelaPerfilUsuario({ navigation }) {
             try {
               await signOut(auth);
 
-              navigation.reset({
+                navigation.getParent()?.reset({
                 index: 0,
-                routes: [
-                  {
-                    name: "TelaLogin",
-                  },
-                ],
+                routes: [{ name: "TelaLogin" }],
               });
+              
             } catch (erro) {
               console.log(
                 "Erro ao sair da conta:",
