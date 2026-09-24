@@ -9,6 +9,7 @@ import TelaInicial from "./routes/screens/TelaInicial";
 import TelaLogin from "./routes/screens/TelaLogin";
 import TelaHomeAluno from "./routes/screens/TelaHomeAluno";
 import TelaCardapioAdmin from "./routes/screens/AdminCardapio";
+import DashboardAdmin from "./routes/screens/DashboardAdmin";
 import TelaDeConfirmacao from "./routes/screens/TelaDeConfirmacao";
 import TelaPerfilAluno from "./routes/screens/TelaPerfilAluno";
 import TelaDeFeedbackAdmin from "./routes/screens/TelaDeFeedbackAdmin";
@@ -114,9 +115,29 @@ function MenuAluno() {
 function MenuEquipe() {
   return (
     <NavegadorAbas.Navigator
-      initialRouteName="CardapioAdmin"
+      initialRouteName="DashboardAdmin"
       screenOptions={opcoesMenuInferior}
     >
+      <NavegadorAbas.Screen
+        name="DashboardAdmin"
+        component={DashboardAdmin}
+        options={{
+          title: "Início",
+
+          tabBarIcon: ({ focused: estaSelecionado }) => (
+            <Text
+              style={
+                estaSelecionado
+                  ? estilos.iconeSelecionado
+                  : estilos.iconeNaoSelecionado
+              }
+            >
+              🏠
+            </Text>
+          ),
+        }}
+      />
+
       <NavegadorAbas.Screen
         name="CardapioAdmin"
         component={TelaCardapioAdmin}
