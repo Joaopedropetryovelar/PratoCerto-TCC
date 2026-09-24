@@ -1,17 +1,13 @@
-import React, {
-  useEffect,
-  useState,
-} from "react";
-
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
-  StyleSheet,
   StatusBar,
+  StyleSheet,
   Text,
-  View,
-  ActivityIndicator,
   TouchableOpacity,
+  View,
 } from "react-native";
 
 import {
@@ -21,81 +17,96 @@ import {
   where,
 } from "firebase/firestore";
 
-import {
-  database,
-} from "../../../FireBaseConfig";
+import { database } from "../../../FireBaseConfig";
 
-export default function TelaDeFeedbackAdmin({
-  navigation,
-}) {
-  const [refeicao, setRefeicao] =
-    useState(null);
+export default function TelaDeFeedbackAdmin() {
+  const hoje = new Date();
 
-  const [refeicoesHoje, setRefeicoesHoje] =
-    useState([]);
+  const [mesSelecionado, setMesSelecionado] = useState(
+    new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  );
 
-  const [turnoEscolhido, setTurnoEscolhido] =
-    useState("manha");
+  const [turnoEscolhido, setTurnoEscolhido] = useState("manha");
+
+  const [refeicoesMes, setRefeicoesMes] = useState([]);
+  const [confirmacoes, setConfirmacoes] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
+
+  const [carregandoRefeicoes, setCarregandoRefeicoes] = useState(true);
+  const [carregandoConfirmacoes, setCarregandoConfirmacoes] = useState(true);
+  const [carregandoFeedbacks, setCarregandoFeedbacks] = useState(true);
 
   const turnos = [
-    { id: "manha", nome: "Manhã", icone: "☀️" },
-    { id: "tarde", nome: "Tarde", icone: "🌤️" },
-    { id: "noite", nome: "Noite", icone: "🌙" },
+    {
+      id: "manha",
+      nome: "Manhã",
+      icone: "☀️",
+    },
+    {
+      id: "tarde",
+      nome: "Tarde",
+      icone: "🌤️",
+    },
+    {
+      id: "noite",
+      nome: "Noite",
+      icone: "🌙",
+    },
   ];
 
-  const [
-    confirmacoes,
-    setConfirmacoes,
-  ] = useState([]);
-
-  const [
-    feedbacks,
-    setFeedbacks,
-  ] = useState([]);
-
-  const [
-    carregando,
-    setCarregando,
-  ] = useState(true);
-
-  function pegarDataHoje() {
-    const hoje = new Date();
-
-    const ano =
-      hoje.getFullYear();
-
-    const mes = String(
-      hoje.getMonth() + 1
-    ).padStart(2, "0");
-
-    const dia = String(
-      hoje.getDate()
-    ).padStart(2, "0");
-
-    return `${ano}-${mes}-${dia}`;
+  function montarData(ano, mes, dia) {
+    return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(
+      2,
+      "0"
+    )}`;
   }
 
-  const dataHoje =
-    pegarDataHoje();
+  function pegarLimitesMes() {
+    const ano = mesSelecionado.getFullYear();
+    const mes = mesSelecionado.getMonth() + 1;
+
+    const ultimoDia = new Date(ano, mes, 0).getDate();
+
+    return {
+      inicio: montarData(ano, mes, 1),
+      fim: montarData(ano, mes, ultimoDia),
+    };
+  }
+
+  const limitesMes = pegarLimitesMes();
+
+  function nomeMesAtual() {
+    const nome = mesSelecionado.toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric",
+    });
+
+    return nome.charAt(0).toUpperCase() + nome.slice(1);
+  }
 
   function formatarData(data) {
     if (!data) {
       return "";
     }
 
-    const partes =
-      data.split("-");
+    const partes = data.split("-");
 
-    if (
-      partes.length !== 3
-    ) {
+    if (partes.length !== 3) {
       return data;
     }
 
     return `${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
-  function pegarDiaSemana() {
+  function pegarDiaSemana(data) {
+    if (!data) {
+      return "";
+    }
+
+    const [ano, mes, dia] = data.split("-").map(Number);
+
+    const dataLocal = new Date(ano, mes - 1, dia);
+
     const dias = [
       "Domingo",
       "Segunda-feira",
@@ -106,15 +117,52 @@ export default function TelaDeFeedbackAdmin({
       "Sábado",
     ];
 
-    return dias[
-      new Date().getDay()
-    ];
+    return dias[dataLocal.getDay()];
   }
 
+  function voltarMes() {
+    setMesSelecionado(
+      new Date(
+        mesSelecionado.getFullYear(),
+        mesSelecionado.getMonth() - 1,
+        1
+      )
+    );
+  }
+
+  function avancarMes() {
+    const proximoMes = new Date(
+      mesSelecionado.getFullYear(),
+      mesSelecionado.getMonth() + 1,
+      1
+    );
+
+    const mesAtual = new Date(
+      hoje.getFullYear(),
+      hoje.getMonth(),
+      1
+    );
+
+    if (proximoMes <= mesAtual) {
+      setMesSelecionado(proximoMes);
+    }
+  }
+
+  const mesAtualCalendario = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    1
+  );
+
+  const podeAvancar = mesSelecionado < mesAtualCalendario;
+
   useEffect(() => {
+    setCarregandoRefeicoes(true);
+
     const consulta = query(
       collection(database, "NomePratos"),
-      where("data", "==", dataHoje)
+      where("data", ">=", limitesMes.inicio),
+      where("data", "<=", limitesMes.fim)
     );
 
     const cancelarListener = onSnapshot(
@@ -134,302 +182,208 @@ export default function TelaDeFeedbackAdmin({
           }
         });
 
-        setRefeicoesHoje(lista);
+        setRefeicoesMes(lista);
+        setCarregandoRefeicoes(false);
       },
       (erro) => {
-        console.log("Erro ao carregar refeição:", erro);
-        setRefeicoesHoje([]);
+        console.log("Erro ao carregar refeições do mês:", erro);
+        setRefeicoesMes([]);
+        setCarregandoRefeicoes(false);
       }
     );
 
     return () => cancelarListener();
-  }, [dataHoje]);
+  }, [limitesMes.inicio, limitesMes.fim]);
 
   useEffect(() => {
-    const refeicaoDoTurno =
-      refeicoesHoje.find(
-        (item) => (item.turno || "manha") === turnoEscolhido
-      ) || null;
+    setCarregandoConfirmacoes(true);
 
-    setRefeicao(refeicaoDoTurno);
-  }, [refeicoesHoje, turnoEscolhido]);
-
-  useEffect(() => {
     const consulta = query(
-      collection(
-        database,
-        "confirmacoes"
-      ),
-
-      where(
-        "data",
-        "==",
-        dataHoje
-      )
+      collection(database, "confirmacoes"),
+      where("data", ">=", limitesMes.inicio),
+      where("data", "<=", limitesMes.fim)
     );
 
-    const cancelarListener =
-      onSnapshot(
-        consulta,
+    const cancelarListener = onSnapshot(
+      consulta,
+      (snapshot) => {
+        const lista = [];
 
-        (snapshot) => {
-          const lista = [];
+        snapshot.forEach((documento) => {
+          lista.push({
+            id: documento.id,
+            ...documento.data(),
+          });
+        });
 
-          snapshot.forEach(
-            (documento) => {
-              lista.push({
-                id:
-                  documento.id,
-
-                ...documento.data(),
-              });
-            }
-          );
-
-          setConfirmacoes(
-            lista
-          );
-
-          setCarregando(
-            false
-          );
-        },
-
-        (erro) => {
-          console.log(
-            "Erro ao buscar confirmações:",
-            erro
-          );
-
-          setCarregando(
-            false
-          );
-        }
-      );
-
-    return () => {
-      cancelarListener();
-    };
-  }, [dataHoje]);
-
-  useEffect(() => {
-    const consulta = query(
-      collection(
-        database,
-        "feedbacks"
-      ),
-
-      where(
-        "data",
-        "==",
-        dataHoje
-      )
+        setConfirmacoes(lista);
+        setCarregandoConfirmacoes(false);
+      },
+      (erro) => {
+        console.log("Erro ao buscar confirmações:", erro);
+        setConfirmacoes([]);
+        setCarregandoConfirmacoes(false);
+      }
     );
 
-    const cancelarListener =
-      onSnapshot(
-        consulta,
+    return () => cancelarListener();
+  }, [limitesMes.inicio, limitesMes.fim]);
 
-        (snapshot) => {
-          const lista = [];
+  useEffect(() => {
+    setCarregandoFeedbacks(true);
 
-          snapshot.forEach(
-            (documento) => {
-              lista.push({
-                id:
-                  documento.id,
+    const consulta = query(
+      collection(database, "feedbacks"),
+      where("data", ">=", limitesMes.inicio),
+      where("data", "<=", limitesMes.fim)
+    );
 
-                ...documento.data(),
-              });
-            }
+    const cancelarListener = onSnapshot(
+      consulta,
+      (snapshot) => {
+        const lista = [];
+
+        snapshot.forEach((documento) => {
+          lista.push({
+            id: documento.id,
+            ...documento.data(),
+          });
+        });
+
+        lista.sort((a, b) => {
+          return String(b.data || "").localeCompare(
+            String(a.data || "")
           );
+        });
 
-          lista.sort(
-            (a, b) => {
-              const tempoA =
-                a.dataResposta
-                  ?.seconds ||
-                a.criadoEm
-                  ?.seconds ||
-                0;
+        setFeedbacks(lista);
+        setCarregandoFeedbacks(false);
+      },
+      (erro) => {
+        console.log("Erro ao buscar feedbacks:", erro);
+        setFeedbacks([]);
+        setCarregandoFeedbacks(false);
+      }
+    );
 
-              const tempoB =
-                b.dataResposta
-                  ?.seconds ||
-                b.criadoEm
-                  ?.seconds ||
-                0;
-
-              return (
-                tempoB -
-                tempoA
-              );
-            }
-          );
-
-          setFeedbacks(
-            lista
-          );
-        },
-
-        (erro) => {
-          console.log(
-            "Erro ao buscar feedbacks:",
-            erro
-          );
-        }
-      );
-
-    return () => {
-      cancelarListener();
-    };
-  }, [dataHoje]);
+    return () => cancelarListener();
+  }, [limitesMes.inicio, limitesMes.fim]);
 
   function pegarTurnoDoRegistro(registro) {
     if (registro.turno) {
       return registro.turno;
     }
 
-    const refeicaoRelacionada =
-      refeicoesHoje.find(
-        (item) => item.id === registro.refeicaoId
-      );
+    const refeicaoRelacionada = refeicoesMes.find(
+      (item) => item.id === registro.refeicaoId
+    );
 
     return refeicaoRelacionada?.turno || "manha";
   }
 
-  const confirmacoesDoTurno =
-    confirmacoes.filter(
-      (item) =>
-        pegarTurnoDoRegistro(item) === turnoEscolhido
-    );
-
-  const feedbacksDoTurno =
-    feedbacks.filter(
-      (item) =>
-        pegarTurnoDoRegistro(item) === turnoEscolhido
-    );
-
-  const confirmados =
-    confirmacoesDoTurno.filter(
-      (item) =>
-        item.vaiConsumir ===
-        true
-    ).length;
-
-  const recusados =
-    confirmacoesDoTurno.filter(
-      (item) =>
-        item.vaiConsumir ===
-        false
-    ).length;
-
-  const totalRespostas =
-    confirmacoesDoTurno.length;
-
-  const porcentagemConfirmados =
-    totalRespostas > 0
-      ? Math.round(
-          (confirmados /
-            totalRespostas) *
-            100
-        )
-      : 0;
-
-  const porcentagemRecusados =
-    totalRespostas > 0
-      ? Math.round(
-          (recusados /
-            totalRespostas) *
-            100
-        )
-      : 0;
-
-  const feedbacksComNota =
-    feedbacksDoTurno.filter(
-      (item) =>
-        typeof item.nota ===
-        "number"
-    );
-
-  let notaMedia = 0;
-
-  if (
-    feedbacksComNota.length >
-    0
-  ) {
-    const soma =
-      feedbacksComNota.reduce(
-        (total, item) =>
-          total + item.nota,
-        0
-      );
-
-    notaMedia =
-      soma /
-      feedbacksComNota.length;
-  }
-
-  function pegarEmoji(
-    feedback
-  ) {
+  function pegarEmoji(feedback) {
     if (feedback.emoji) {
       return feedback.emoji;
     }
 
-    if (
-      feedback.nota === 5
-    ) {
+    if (feedback.nota === 5) {
       return "😍";
     }
 
-    if (
-      feedback.nota === 4
-    ) {
+    if (feedback.nota === 4) {
       return "🙂";
     }
 
-    if (
-      feedback.nota === 3
-    ) {
+    if (feedback.nota === 3) {
       return "😐";
     }
 
-    if (
-      feedback.nota <= 2
-    ) {
+    if (feedback.nota <= 2) {
       return "🙁";
     }
 
     return "💬";
   }
 
+  function pegarRefeicaoDoDia(data) {
+    return (
+      refeicoesMes.find(
+        (item) =>
+          item.data === data &&
+          (item.turno || "manha") === turnoEscolhido
+      ) || null
+    );
+  }
+
+  const confirmacoesDoTurno = confirmacoes.filter(
+    (item) => pegarTurnoDoRegistro(item) === turnoEscolhido
+  );
+
+  const feedbacksDoTurno = feedbacks.filter(
+    (item) => pegarTurnoDoRegistro(item) === turnoEscolhido
+  );
+
+  const confirmados = confirmacoesDoTurno.filter(
+    (item) => item.vaiConsumir === true
+  ).length;
+
+  const recusados = confirmacoesDoTurno.filter(
+    (item) => item.vaiConsumir === false
+  ).length;
+
+  const totalRespostas = confirmacoesDoTurno.length;
+
+  const porcentagemConfirmados =
+    totalRespostas > 0
+      ? Math.round((confirmados / totalRespostas) * 100)
+      : 0;
+
+  const porcentagemRecusados =
+    totalRespostas > 0
+      ? Math.round((recusados / totalRespostas) * 100)
+      : 0;
+
+  const feedbacksComNota = feedbacksDoTurno.filter(
+    (item) => typeof item.nota === "number"
+  );
+
+  const notaMedia =
+    feedbacksComNota.length > 0
+      ? feedbacksComNota.reduce(
+          (total, item) => total + item.nota,
+          0
+        ) / feedbacksComNota.length
+      : 0;
+
+  const diasComFeedback = [
+    ...new Set(
+      feedbacksDoTurno
+        .map((item) => item.data)
+        .filter(Boolean)
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+
+  const carregando =
+    carregandoRefeicoes ||
+    carregandoConfirmacoes ||
+    carregandoFeedbacks;
+
   if (carregando) {
     return (
-      <SafeAreaView
-        style={estilos.tela}
-      >
+      <SafeAreaView style={styles.tela}>
         <StatusBar
           barStyle="dark-content"
-          backgroundColor="#F6FAF1"
+          backgroundColor="#F7F9F5"
         />
 
-        <View
-          style={
-            estilos.carregando
-          }
-        >
+        <View style={styles.carregando}>
           <ActivityIndicator
             size="large"
-            color="#2F6B4F"
+            color="#347A59"
           />
 
-          <Text
-            style={
-              estilos.textoCarregando
-            }
-          >
-            Carregando dados...
+          <Text style={styles.textoCarregando}>
+            Carregando feedbacks...
           </Text>
         </View>
       </SafeAreaView>
@@ -437,82 +391,64 @@ export default function TelaDeFeedbackAdmin({
   }
 
   return (
-    <SafeAreaView
-      style={estilos.tela}
-    >
+    <SafeAreaView style={styles.tela}>
       <StatusBar
         barStyle="dark-content"
-        backgroundColor="#F6FAF1"
+        backgroundColor="#F7F9F5"
       />
 
       <ScrollView
-        style={estilos.rolagem}
-        contentContainerStyle={
-          estilos.conteudoRolagem
-        }
-        showsVerticalScrollIndicator={
-          false
-        }
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.conteudo}
       >
-        <View
-          style={
-            estilos.cabecalho
-          }
-        >
-          <View
-            style={
-              estilos.seloAdmin
-            }
+        <View style={styles.cabecalho}>
+          <Text style={styles.titulo}>
+            Feedbacks
+          </Text>
+
+          <Text style={styles.subtitulo}>
+            Acompanhe as avaliações das refeições escolares.
+          </Text>
+        </View>
+
+        <View style={styles.seletorMes}>
+          <TouchableOpacity
+            style={styles.botaoSeta}
+            onPress={voltarMes}
           >
-            <Text
-              style={
-                estilos.textoSeloAdmin
-              }
-            >
-              🛡️ ADMINISTRADOR
+            <Text style={styles.seta}>‹</Text>
+          </TouchableOpacity>
+
+          <View style={styles.centroMes}>
+            <Text style={styles.textoPeriodo}>
+              Período
+            </Text>
+
+            <Text style={styles.textoMes}>
+              {nomeMesAtual()}
             </Text>
           </View>
 
-          <Text
-            style={
-              estilos.subtituloCabecalho
-            }
+          <TouchableOpacity
+            style={[
+              styles.botaoSeta,
+              !podeAvancar && styles.botaoDesativado,
+            ]}
+            onPress={avancarMes}
+            disabled={!podeAvancar}
           >
-            {pegarDiaSemana()},{" "}
-            {formatarData(
-              dataHoje
-            )}
-            {" · "}
-            {turnos.find(
-              (item) => item.id === turnoEscolhido
-            )?.nome || "Turno"}
-            {" · "}
-            {refeicao?.tipo ||
-              "Refeição"}
-          </Text>
-
-          <Text
-            style={
-              estilos.titulo
-            }
-          >
-            Feedback dos alunos
-          </Text>
-
-          {refeicao && (
             <Text
-              style={
-                estilos.nomeRefeicao
-              }
+              style={[
+                styles.seta,
+                !podeAvancar && styles.setaDesativada,
+              ]}
             >
-              {refeicao.icone ||
-                "🍛"}{" "}
-              {refeicao.nome}
+              ›
             </Text>
-          )}
+          </TouchableOpacity>
         </View>
 
-        <View style={estilos.linhaTurnos}>
+        <View style={styles.turnos}>
           {turnos.map((turno) => {
             const ativo = turno.id === turnoEscolhido;
 
@@ -520,19 +456,19 @@ export default function TelaDeFeedbackAdmin({
               <TouchableOpacity
                 key={turno.id}
                 style={[
-                  estilos.botaoTurno,
-                  ativo && estilos.botaoTurnoAtivo,
+                  styles.botaoTurno,
+                  ativo && styles.botaoTurnoAtivo,
                 ]}
                 onPress={() => setTurnoEscolhido(turno.id)}
               >
-                <Text style={estilos.iconeTurno}>
+                <Text style={styles.iconeTurno}>
                   {turno.icone}
                 </Text>
 
                 <Text
                   style={[
-                    estilos.textoTurno,
-                    ativo && estilos.textoTurnoAtivo,
+                    styles.nomeTurno,
+                    ativo && styles.nomeTurnoAtivo,
                   ]}
                 >
                   {turno.nome}
@@ -542,785 +478,798 @@ export default function TelaDeFeedbackAdmin({
           })}
         </View>
 
-        <View
-          style={
-            estilos.linhaEstatisticas
-          }
-        >
-          <View
-            style={
-              estilos.cartaoEstatistica
-            }
-          >
-            <Text
-              style={
-                estilos.valorEstatistica
-              }
-            >
+        <Text style={styles.tituloSecao}>
+          Resumo mensal
+        </Text>
+
+        <View style={styles.cardResumo}>
+          <View style={styles.itemResumo}>
+            <Text style={styles.numeroVerde}>
               {confirmados}
             </Text>
 
-            <Text
-              style={
-                estilos.rotuloEstatistica
-              }
-            >
-              VÃO{"\n"}
-              COMER
+            <Text style={styles.textoResumo}>
+              Vão comer
             </Text>
           </View>
 
-          <View
-            style={
-              estilos.cartaoEstatistica
-            }
-          >
-            <Text
-              style={
-                estilos.valorAlerta
-              }
-            >
+          <View style={styles.divisorVertical} />
+
+          <View style={styles.itemResumo}>
+            <Text style={styles.numeroVermelho}>
               {recusados}
             </Text>
 
-            <Text
-              style={
-                estilos.rotuloEstatistica
-              }
-            >
-              NÃO VÃO{"\n"}
-              COMER
+            <Text style={styles.textoResumo}>
+              Recusaram
             </Text>
           </View>
 
-          <View
-            style={
-              estilos.cartaoEstatistica
-            }
-          >
-            <Text
-              style={
-                estilos.valorTotal
-              }
-            >
+          <View style={styles.divisorVertical} />
+
+          <View style={styles.itemResumo}>
+            <Text style={styles.numeroNormal}>
               {totalRespostas}
             </Text>
 
-            <Text
-              style={
-                estilos.rotuloEstatistica
-              }
-            >
-              RESPOSTAS{"\n"}
-              HOJE
+            <Text style={styles.textoResumo}>
+              Respostas
             </Text>
           </View>
         </View>
 
-        <View
-          style={
-            estilos.cartaoAvaliacao
-          }
-        >
-          <View
-            style={
-              estilos.cabecalhoAvaliacao
-            }
-          >
-            <Text
-              style={
-                estilos.notaMedia
-              }
-            >
-              {
-                porcentagemConfirmados
-              }
-              <Text
-                style={
-                  estilos.notaMaxima
-                }
-              >
-                %
+        <Text style={styles.tituloSecao}>
+          Aceitação
+        </Text>
+
+        <View style={styles.cardAceitacao}>
+          <View style={styles.linhaAceitacao}>
+            <View>
+              <Text style={styles.rotuloAceitacao}>
+                Aprovação
               </Text>
-            </Text>
 
-            <Text
-              style={
-                estilos.tituloAvaliacao
-              }
-            >
-              CONFIRMAÇÕES DA
-              REFEIÇÃO DE HOJE
+              <Text style={styles.numeroPorcentagem}>
+                {porcentagemConfirmados}%
+              </Text>
+            </View>
+
+            <Text style={styles.emojiGrande}>
+              👍
             </Text>
           </View>
 
-          <View
-            style={
-              estilos.linhaBarra
-            }
-          >
-            <Text
-              style={
-                estilos.emojiAvaliacao
-              }
-            >
-              ✅
-            </Text>
-
+          <View style={styles.barraFundo}>
             <View
-              style={
-                estilos.trilhoBarra
-              }
-            >
-              <View
-                style={[
-                  estilos.barraConfirmados,
-
-                  {
-                    width: `${porcentagemConfirmados}%`,
-                  },
-                ]}
-              />
-            </View>
-
-            <Text
-              style={
-                estilos.porcentagem
-              }
-            >
-              {
-                porcentagemConfirmados
-              }
-              %
-            </Text>
+              style={[
+                styles.barraAprovacao,
+                {
+                  width: `${porcentagemConfirmados}%`,
+                },
+              ]}
+            />
           </View>
 
-          <View
-            style={
-              estilos.ultimaLinhaBarra
-            }
-          >
-            <Text
-              style={
-                estilos.emojiAvaliacao
-              }
-            >
-              ✖️
+          <View style={styles.linhaInferior}>
+            <Text style={styles.textoSecundario}>
+              Rejeição
             </Text>
 
-            <View
-              style={
-                estilos.trilhoBarra
-              }
-            >
-              <View
-                style={[
-                  estilos.barraRecusados,
-
-                  {
-                    width: `${porcentagemRecusados}%`,
-                  },
-                ]}
-              />
-            </View>
-
-            <Text
-              style={
-                estilos.porcentagem
-              }
-            >
-              {
-                porcentagemRecusados
-              }
-              %
+            <Text style={styles.valorRejeicao}>
+              {porcentagemRecusados}%
             </Text>
           </View>
         </View>
 
-        {feedbacksComNota.length >
-          0 && (
-          <View
-            style={
-              estilos.resumoFeedback
-            }
-          >
-            <Text
-              style={
-                estilos.emojiNota
-              }
-            >
+        <Text style={styles.tituloSecao}>
+          Avaliações
+        </Text>
+
+        <View style={styles.cardAvaliacao}>
+          <View style={styles.avaliacaoPrincipal}>
+            <Text style={styles.estrela}>
               ⭐
             </Text>
 
             <View>
-              <Text
-                style={
-                  estilos.textoNotaTitulo
-                }
-              >
-                Nota média
+              <Text style={styles.nota}>
+                {feedbacksComNota.length > 0
+                  ? notaMedia.toFixed(1)
+                  : "-"}
               </Text>
 
-              <Text
-                style={
-                  estilos.textoNota
-                }
-              >
-                {notaMedia.toFixed(
-                  1
-                )}
-                /5 ·{" "}
-                {
-                  feedbacksComNota.length
-                }{" "}
-                avaliações
+              <Text style={styles.textoSecundario}>
+                Nota média
               </Text>
             </View>
           </View>
-        )}
 
-        <Text
-          style={
-            estilos.tituloSecao
-          }
-        >
-          COMENTÁRIOS RECENTES
-        </Text>
+          <View style={styles.dadosAvaliacao}>
+            <View style={styles.dadoAvaliacao}>
+              <Text style={styles.valorDado}>
+                {feedbacksDoTurno.length}
+              </Text>
 
-        {feedbacksDoTurno.length ===
-          0 && (
-          <View
-            style={
-              estilos.semComentarios
-            }
-          >
-            <Text
-              style={
-                estilos.iconeSemComentarios
-              }
-            >
+              <Text style={styles.rotuloDado}>
+                Avaliações
+              </Text>
+            </View>
+
+            <View style={styles.dadoAvaliacao}>
+              <Text style={styles.valorDado}>
+                {diasComFeedback.length}
+              </Text>
+
+              <Text style={styles.rotuloDado}>
+                Dias
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.cabecalhoFeedbacks}>
+          <View>
+            <Text style={styles.tituloSecaoSemMargem}>
+              Feedbacks por dia
+            </Text>
+
+            <Text style={styles.descricaoSecao}>
+              Histórico de {nomeMesAtual().toLowerCase()}
+            </Text>
+          </View>
+
+          <View style={styles.quantidadeFeedback}>
+            <Text style={styles.quantidadeFeedbackTexto}>
+              {feedbacksDoTurno.length}
+            </Text>
+          </View>
+        </View>
+
+        {diasComFeedback.length === 0 ? (
+          <View style={styles.semFeedback}>
+            <Text style={styles.semFeedbackEmoji}>
               💬
             </Text>
 
-            <Text
-              style={
-                estilos.tituloSemComentarios
-              }
-            >
-              Nenhum comentário ainda
+            <Text style={styles.semFeedbackTitulo}>
+              Nenhuma avaliação
             </Text>
 
-            <Text
-              style={
-                estilos.textoSemComentarios
-              }
-            >
-              Os feedbacks dos alunos
-              aparecerão aqui depois
-              que forem enviados.
+            <Text style={styles.semFeedbackTexto}>
+              Ainda não existem feedbacks registrados neste período.
             </Text>
           </View>
-        )}
+        ) : (
+          diasComFeedback.map((data) => {
+            const feedbacksDoDia = feedbacksDoTurno.filter(
+              (item) => item.data === data
+            );
 
-        {feedbacksDoTurno.map(
-          (feedback) => (
-            <View
-              key={feedback.id}
-              style={
-                estilos.cartaoComentario
-              }
-            >
+            const feedbacksComNotaDoDia = feedbacksDoDia.filter(
+              (item) => typeof item.nota === "number"
+            );
+
+            const mediaDoDia =
+              feedbacksComNotaDoDia.length > 0
+                ? feedbacksComNotaDoDia.reduce(
+                    (total, item) => total + item.nota,
+                    0
+                  ) / feedbacksComNotaDoDia.length
+                : 0;
+
+            const refeicaoDoDia = pegarRefeicaoDoDia(data);
+
+            const nomeRefeicao =
+              feedbacksDoDia.find(
+                (item) => item.refeicaoNome
+              )?.refeicaoNome ||
+              refeicaoDoDia?.nome ||
+              "Refeição";
+
+            return (
               <View
-                style={
-                  estilos.cabecalhoComentario
-                }
+                key={data}
+                style={styles.grupoDia}
               >
-                <Text
-                  style={
-                    estilos.nomeAluno
-                  }
-                >
-                  {feedback.alunoNome ||
-                    "Aluno"}
-
-                  {feedback.turma ? (
-                    <Text
-                      style={
-                        estilos.turmaAluno
-                      }
-                    >
-                      {" "}
-                      ·{" "}
-                      {
-                        feedback.turma
-                      }
+                <View style={styles.topoDia}>
+                  <View>
+                    <Text style={styles.diaSemana}>
+                      {pegarDiaSemana(data)}
                     </Text>
-                  ) : null}
-                </Text>
 
-                <Text
-                  style={
-                    estilos.emojiComentario
-                  }
-                >
-                  {pegarEmoji(
-                    feedback
-                  )}
-                </Text>
-              </View>
-
-              {feedback.comentario ? (
-                <Text
-                  style={
-                    estilos.textoComentario
-                  }
-                >
-                  {
-                    feedback.comentario
-                  }
-                </Text>
-              ) : (
-                <Text
-                  style={
-                    estilos.textoComentarioVazio
-                  }
-                >
-                  Avaliação enviada
-                  sem comentário.
-                </Text>
-              )}
-
-              {Array.isArray(
-                feedback.etiquetas
-              ) &&
-                feedback.etiquetas
-                  .length > 0 && (
-                  <View
-                    style={
-                      estilos.linhaEtiquetas
-                    }
-                  >
-                    {feedback.etiquetas.map(
-                      (
-                        etiqueta,
-                        index
-                      ) => (
-                        <View
-                          key={`${feedback.id}-${index}`}
-                          style={
-                            estilos.etiqueta
-                          }
-                        >
-                          <Text
-                            style={
-                              estilos.textoEtiqueta
-                            }
-                          >
-                            {
-                              etiqueta
-                            }
-                          </Text>
-                        </View>
-                      )
-                    )}
+                    <Text style={styles.data}>
+                      {formatarData(data)}
+                    </Text>
                   </View>
-                )}
-            </View>
-          )
+
+                  <View style={styles.notaDiaContainer}>
+                    <Text style={styles.notaDia}>
+                      {feedbacksComNotaDoDia.length > 0
+                        ? `${mediaDoDia.toFixed(1)} ⭐`
+                        : "-"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.refeicao}>
+                  <Text style={styles.refeicaoEmoji}>
+                    🍽️
+                  </Text>
+
+                  <Text style={styles.refeicaoNome}>
+                    {nomeRefeicao}
+                  </Text>
+                </View>
+
+                {feedbacksDoDia.map((feedback) => (
+                  <View
+                    key={feedback.id}
+                    style={styles.feedback}
+                  >
+                    <View style={styles.feedbackTopo}>
+                      <View style={styles.aluno}>
+                        <Text style={styles.nomeAluno}>
+                          {feedback.alunoNome || "Aluno"}
+                        </Text>
+
+                        {feedback.turma ? (
+                          <Text style={styles.turmaAluno}>
+                            {feedback.turma}
+                          </Text>
+                        ) : null}
+                      </View>
+
+                      <View style={styles.feedbackNota}>
+                        <Text style={styles.feedbackEmoji}>
+                          {pegarEmoji(feedback)}
+                        </Text>
+
+                        {typeof feedback.nota === "number" && (
+                          <Text style={styles.numeroNota}>
+                            {feedback.nota}/5
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {feedback.comentario ? (
+                      <Text style={styles.comentario}>
+                        {feedback.comentario}
+                      </Text>
+                    ) : (
+                      <Text style={styles.semComentario}>
+                        Sem comentário.
+                      </Text>
+                    )}
+
+                    {Array.isArray(feedback.etiquetas) &&
+                      feedback.etiquetas.length > 0 && (
+                        <View style={styles.etiquetas}>
+                          {feedback.etiquetas.map(
+                            (etiqueta, index) => (
+                              <View
+                                key={`${feedback.id}-${index}`}
+                                style={styles.etiqueta}
+                              >
+                                <Text style={styles.etiquetaTexto}>
+                                  {etiqueta}
+                                </Text>
+                              </View>
+                            )
+                          )}
+                        </View>
+                      )}
+                  </View>
+                ))}
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const estilos =
-  StyleSheet.create({
-    tela: {
-      flex: 1,
-      backgroundColor:
-        "#F6FAF1",
-    },
+const styles = StyleSheet.create({
+  tela: {
+    flex: 1,
+    backgroundColor: "#F7F9F5",
+  },
 
-    rolagem: {
-      flex: 1,
-    },
+  conteudo: {
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 40,
+  },
 
-    conteudoRolagem: {
-      paddingHorizontal: 20,
-      paddingTop: 18,
-      paddingBottom: 24,
-    },
+  carregando: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    carregando: {
-      flex: 1,
-      justifyContent:
-        "center",
-      alignItems: "center",
-    },
+  textoCarregando: {
+    marginTop: 12,
+    color: "#6C786F",
+    fontSize: 14,
+  },
 
-    textoCarregando: {
-      marginTop: 10,
-      color: "#5B6B5C",
-      fontWeight: "600",
-    },
+  cabecalho: {
+    marginBottom: 24,
+  },
 
-    cabecalho: {
-      marginBottom: 18,
-    },
+  titulo: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#214C39",
+  },
 
-    seloAdmin: {
-      alignSelf:
-        "flex-start",
-      backgroundColor:
-        "#204A37",
-      borderRadius: 100,
-      paddingHorizontal: 11,
-      paddingVertical: 6,
-      marginBottom: 9,
-    },
+  subtitulo: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#758078",
+    marginTop: 5,
+  },
 
-    textoSeloAdmin: {
-      color: "#FFFFFF",
-      fontSize: 10,
-      fontWeight: "800",
-      letterSpacing: 0.4,
-    },
+  seletorMes: {
+    height: 70,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+  },
 
-    subtituloCabecalho: {
-      color: "#5B6B5C",
-      fontSize: 12,
-      fontWeight: "600",
-      marginBottom: 2,
-    },
+  botaoSeta: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#EFF4EC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-    titulo: {
-      color: "#204A37",
-      fontSize: 25,
-      fontWeight: "800",
-    },
+  botaoDesativado: {
+    backgroundColor: "#F4F5F3",
+  },
 
-    nomeRefeicao: {
-      color: "#5B6B5C",
-      fontSize: 12,
-      fontWeight: "600",
-      marginTop: 5,
-    },
+  seta: {
+    fontSize: 28,
+    color: "#347A59",
+    lineHeight: 30,
+  },
 
-    linhaTurnos: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 14,
-    },
+  setaDesativada: {
+    color: "#C5CBC6",
+  },
 
-    botaoTurno: {
-      flex: 1,
-      minHeight: 48,
-      backgroundColor: "#FFFFFF",
-      borderColor: "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-      flexDirection: "row",
-      gap: 5,
-    },
+  centroMes: {
+    flex: 1,
+    alignItems: "center",
+  },
 
-    botaoTurnoAtivo: {
-      backgroundColor: "#2F6B4F",
-      borderColor: "#2F6B4F",
-    },
+  textoPeriodo: {
+    fontSize: 10,
+    color: "#98A099",
+    textTransform: "uppercase",
+    fontWeight: "700",
+  },
 
-    iconeTurno: {
-      fontSize: 15,
-    },
+  textoMes: {
+    fontSize: 16,
+    color: "#214C39",
+    fontWeight: "800",
+    marginTop: 2,
+  },
 
-    textoTurno: {
-      color: "#5B6B5C",
-      fontSize: 11,
-      fontWeight: "800",
-    },
+  turnos: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 28,
+  },
 
-    textoTurnoAtivo: {
-      color: "#FFFFFF",
-    },
+  botaoTurno: {
+    flex: 1,
+    height: 48,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 5,
+  },
 
-    linhaEstatisticas: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 14,
-    },
+  botaoTurnoAtivo: {
+    backgroundColor: "#347A59",
+    borderColor: "#347A59",
+  },
 
-    cartaoEstatistica: {
-      flex: 1,
-      minHeight: 80,
-      alignItems: "center",
-      justifyContent:
-        "center",
-      backgroundColor:
-        "#FFFFFF",
-      borderColor:
-        "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 16,
-      paddingHorizontal: 6,
-      paddingVertical: 10,
-    },
+  iconeTurno: {
+    fontSize: 14,
+  },
 
-    valorEstatistica: {
-      color: "#2F6B4F",
-      fontSize: 19,
-      fontWeight: "800",
-      marginBottom: 3,
-    },
+  nomeTurno: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#657168",
+  },
 
-    valorAlerta: {
-      color: "#E85D4C",
-      fontSize: 19,
-      fontWeight: "800",
-      marginBottom: 3,
-    },
+  nomeTurnoAtivo: {
+    color: "#FFFFFF",
+  },
 
-    valorTotal: {
-      color: "#204A37",
-      fontSize: 19,
-      fontWeight: "800",
-      marginBottom: 3,
-    },
+  tituloSecao: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#425148",
+    marginBottom: 10,
+  },
 
-    rotuloEstatistica: {
-      color: "#5B6B5C",
-      fontSize: 8,
-      fontWeight: "800",
-      lineHeight: 11,
-      textAlign: "center",
-    },
+  tituloSecaoSemMargem: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#425148",
+  },
 
-    cartaoAvaliacao: {
-      backgroundColor:
-        "#FFFFFF",
-      borderColor:
-        "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 18,
-      padding: 15,
-      marginBottom: 14,
-    },
+  cardResumo: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    paddingVertical: 20,
+    flexDirection: "row",
+    marginBottom: 26,
+  },
 
-    cabecalhoAvaliacao: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 14,
-      marginBottom: 14,
-    },
+  itemResumo: {
+    flex: 1,
+    alignItems: "center",
+  },
 
-    notaMedia: {
-      color: "#204A37",
-      fontSize: 32,
-      fontWeight: "900",
-    },
+  divisorVertical: {
+    width: 1,
+    backgroundColor: "#E9EDE8",
+  },
 
-    notaMaxima: {
-      color: "#5B6B5C",
-      fontSize: 13,
-      fontWeight: "600",
-    },
+  numeroVerde: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#347A59",
+  },
 
-    tituloAvaliacao: {
-      flex: 1,
-      color: "#5B6B5C",
-      fontSize: 10,
-      fontWeight: "800",
-      letterSpacing: 0.7,
-      lineHeight: 14,
-    },
+  numeroVermelho: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#D8655B",
+  },
 
-    linhaBarra: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 9,
-      marginBottom: 9,
-    },
+  numeroNormal: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#33453A",
+  },
 
-    ultimaLinhaBarra: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 9,
-    },
+  textoResumo: {
+    fontSize: 10,
+    color: "#8A948C",
+    marginTop: 4,
+  },
 
-    emojiAvaliacao: {
-      width: 22,
-      fontSize: 17,
-    },
+  cardAceitacao: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    padding: 18,
+    marginBottom: 26,
+  },
 
-    trilhoBarra: {
-      flex: 1,
-      height: 8,
-      overflow: "hidden",
-      backgroundColor:
-        "#DCE8D2",
-      borderRadius: 100,
-    },
+  linhaAceitacao: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-    barraConfirmados: {
-      height: "100%",
-      backgroundColor:
-        "#2F6B4F",
-      borderRadius: 100,
-    },
+  rotuloAceitacao: {
+    fontSize: 11,
+    color: "#7D887F",
+    marginBottom: 2,
+  },
 
-    barraRecusados: {
-      height: "100%",
-      backgroundColor:
-        "#E85D4C",
-      borderRadius: 100,
-    },
+  numeroPorcentagem: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#214C39",
+  },
 
-    porcentagem: {
-      width: 34,
-      color: "#5B6B5C",
-      fontSize: 10,
-      fontWeight: "700",
-      textAlign: "right",
-    },
+  emojiGrande: {
+    fontSize: 30,
+  },
 
-    resumoFeedback: {
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor:
-        "#FFFFFF",
-      borderColor:
-        "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 16,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
-      marginBottom: 18,
-    },
+  barraFundo: {
+    width: "100%",
+    height: 9,
+    borderRadius: 10,
+    backgroundColor: "#E8EEE7",
+    overflow: "hidden",
+    marginTop: 16,
+  },
 
-    emojiNota: {
-      fontSize: 25,
-      marginRight: 10,
-    },
+  barraAprovacao: {
+    height: "100%",
+    backgroundColor: "#347A59",
+    borderRadius: 10,
+  },
 
-    textoNotaTitulo: {
-      color: "#5B6B5C",
-      fontSize: 10,
-      fontWeight: "800",
-      textTransform:
-        "uppercase",
-    },
+  linhaInferior: {
+    marginTop: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
 
-    textoNota: {
-      color: "#204A37",
-      fontSize: 16,
-      fontWeight: "800",
-      marginTop: 2,
-    },
+  textoSecundario: {
+    fontSize: 11,
+    color: "#8A948C",
+  },
 
-    tituloSecao: {
-      color: "#5B6B5C",
-      fontSize: 11,
-      fontWeight: "800",
-      letterSpacing: 0.8,
-      marginBottom: 10,
-    },
+  valorRejeicao: {
+    fontSize: 11,
+    color: "#D8655B",
+    fontWeight: "700",
+  },
 
-    cartaoComentario: {
-      backgroundColor:
-        "#FFFFFF",
-      borderColor:
-        "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 16,
-      padding: 13,
-      marginBottom: 10,
-    },
+  cardAvaliacao: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    padding: 18,
+    marginBottom: 30,
+  },
 
-    cabecalhoComentario: {
-      flexDirection: "row",
-      justifyContent:
-        "space-between",
-      alignItems: "center",
-      marginBottom: 6,
-    },
+  avaliacaoPrincipal: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
 
-    nomeAluno: {
-      color: "#1E2B21",
-      fontSize: 13,
-      fontWeight: "800",
-    },
+  estrela: {
+    fontSize: 28,
+  },
 
-    turmaAluno: {
-      color: "#5B6B5C",
-      fontSize: 11,
-      fontWeight: "600",
-    },
+  nota: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#214C39",
+  },
 
-    emojiComentario: {
-      fontSize: 18,
-    },
+  dadosAvaliacao: {
+    flexDirection: "row",
+    gap: 10,
+  },
 
-    textoComentario: {
-      color: "#5B6B5C",
-      fontSize: 12,
-      lineHeight: 18,
-    },
+  dadoAvaliacao: {
+    flex: 1,
+    backgroundColor: "#F7F9F5",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
 
-    textoComentarioVazio: {
-      color: "#8A968B",
-      fontSize: 11,
-      fontStyle: "italic",
-    },
+  valorDado: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#347A59",
+  },
 
-    linhaEtiquetas: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      gap: 6,
-      marginTop: 9,
-    },
+  rotuloDado: {
+    fontSize: 10,
+    color: "#8A948C",
+    marginTop: 3,
+  },
 
-    etiqueta: {
-      backgroundColor:
-        "#EFF6E7",
-      borderRadius: 100,
-      paddingHorizontal: 9,
-      paddingVertical: 5,
-    },
+  cabecalhoFeedbacks: {
+    marginBottom: 14,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
 
-    textoEtiqueta: {
-      color: "#2F6B4F",
-      fontSize: 9,
-      fontWeight: "800",
-    },
+  descricaoSecao: {
+    fontSize: 11,
+    color: "#929A94",
+    marginTop: 3,
+  },
 
-    semComentarios: {
-      backgroundColor:
-        "#FFFFFF",
-      borderColor:
-        "#DCE8D2",
-      borderWidth: 1.5,
-      borderRadius: 16,
-      paddingVertical: 25,
-      paddingHorizontal: 20,
-      alignItems: "center",
-    },
+  quantidadeFeedback: {
+    minWidth: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#E8F1E6",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
 
-    iconeSemComentarios: {
-      fontSize: 30,
-      marginBottom: 7,
-    },
+  quantidadeFeedbackTexto: {
+    fontWeight: "800",
+    color: "#347A59",
+    fontSize: 12,
+  },
 
-    tituloSemComentarios: {
-      color: "#204A37",
-      fontSize: 14,
-      fontWeight: "800",
-    },
+  grupoDia: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    padding: 16,
+    marginBottom: 14,
+  },
 
-    textoSemComentarios: {
-      color: "#5B6B5C",
-      fontSize: 11,
-      lineHeight: 16,
-      textAlign: "center",
-      marginTop: 4,
-    },
-  });
+  topoDia: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  diaSemana: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#253C2F",
+  },
+
+  data: {
+    fontSize: 10,
+    color: "#929B94",
+    marginTop: 2,
+  },
+
+  notaDiaContainer: {
+    backgroundColor: "#F2F6EE",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+
+  notaDia: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#536158",
+  },
+
+  refeicao: {
+    backgroundColor: "#F7F9F5",
+    borderRadius: 12,
+    padding: 11,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  refeicaoEmoji: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+
+  refeicaoNome: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#536158",
+  },
+
+  feedback: {
+    borderTopWidth: 1,
+    borderTopColor: "#EEF1ED",
+    paddingTop: 14,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+
+  feedbackTopo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  aluno: {
+    flex: 1,
+  },
+
+  nomeAluno: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#28382E",
+  },
+
+  turmaAluno: {
+    fontSize: 10,
+    color: "#939C95",
+    marginTop: 2,
+  },
+
+  feedbackNota: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  feedbackEmoji: {
+    fontSize: 17,
+  },
+
+  numeroNota: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#6F7A72",
+  },
+
+  comentario: {
+    marginTop: 9,
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#667169",
+  },
+
+  semComentario: {
+    marginTop: 9,
+    fontSize: 11,
+    fontStyle: "italic",
+    color: "#A0A7A1",
+  },
+
+  etiquetas: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 10,
+  },
+
+  etiqueta: {
+    backgroundColor: "#EDF4E9",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 10,
+  },
+
+  etiquetaTexto: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#47705A",
+  },
+
+  semFeedback: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E8DE",
+    alignItems: "center",
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+  },
+
+  semFeedbackEmoji: {
+    fontSize: 30,
+    marginBottom: 10,
+  },
+
+  semFeedbackTitulo: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#33443A",
+  },
+
+  semFeedbackTexto: {
+    fontSize: 11,
+    lineHeight: 17,
+    textAlign: "center",
+    color: "#929B94",
+    marginTop: 5,
+  },
+});
