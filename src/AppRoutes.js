@@ -5,6 +5,7 @@ import { StyleSheet, Text } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 
+import TelaInicial from "./routes/screens/TelaInicial";
 import TelaLogin from "./routes/screens/TelaLogin";
 import TelaHomeAluno from "./routes/screens/TelaHomeAluno";
 import TelaCardapioAdmin from "./routes/screens/AdminCardapio";
@@ -23,11 +24,11 @@ const NavegadorAbas = createBottomTabNavigator();
 function MenuAluno() {
   return (
     <NavegadorAbas.Navigator
-      initialRouteName="Inicio"
+      initialRouteName="Cardapio"
       screenOptions={opcoesMenuInferior}
     >
       <NavegadorAbas.Screen
-        name="Inicio"
+        name="Cardapio"
         component={TelaHomeAluno}
         options={{
           title: "Cardápio",
@@ -163,9 +164,14 @@ function MenuEquipe() {
 export default function RotasAplicativo() {
   return (
     <NavegadorPrincipal.Navigator
-      initialRouteName="Login"
+      initialRouteName="Inicial"
       screenOptions={{ headerShown: false }}
     >
+      <NavegadorPrincipal.Screen
+        name="Inicial"
+        component={TelaInicial}
+      />
+
       <NavegadorPrincipal.Screen
         name="Login"
         component={TelaLogin}

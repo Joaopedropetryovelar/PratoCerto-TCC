@@ -38,14 +38,25 @@ export default function CadastroScreen({ navigation }) {
   const [senha, setSenha] = useState("");
 
   const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [listaTurmasAberta, setListaTurmasAberta] = useState(false);
   const [listaEscolasAberta, setListaEscolasAberta] = useState(false);
   const [carregando, setCarregando] = useState(false);
+
+  const turmas = [
+    "6º Ano",
+    "7º Ano",
+    "8º Ano",
+    "9º Ano",
+    "1º Ano do Ensino Médio",
+    "2º Ano do Ensino Médio",
+    "3º Ano do Ensino Médio",
+  ];
 
   function validarCampos() {
     if (
       !nome.trim() ||
       !matricula.trim() ||
-      !turma.trim() ||
+      !turma ||
       !turno ||
       !escola ||
       !email.trim() ||
@@ -80,6 +91,11 @@ export default function CadastroScreen({ navigation }) {
     return true;
   }
 
+  function escolherTurma(nomeTurma) {
+    setTurma(nomeTurma);
+    setListaTurmasAberta(false);
+  }
+
   function escolherEscola(nomeEscola) {
     setEscola(nomeEscola);
     setListaEscolasAberta(false);
@@ -94,6 +110,7 @@ export default function CadastroScreen({ navigation }) {
     setEmail("");
     setSenha("");
     setAceitouTermos(false);
+    setListaTurmasAberta(false);
     setListaEscolasAberta(false);
   }
 
@@ -147,7 +164,7 @@ export default function CadastroScreen({ navigation }) {
             matriculaLimpa,
 
           turma:
-            turma.trim(),
+            turma,
 
           turno:
             turno,
@@ -330,13 +347,51 @@ export default function CadastroScreen({ navigation }) {
           Turma
         </Text>
 
-        <TextInput
-          style={styles.campo}
-          value={turma}
-          onChangeText={setTurma}
-          placeholder="Digite sua turma"
-          placeholderTextColor="#94A097"
-        />
+        <TouchableOpacity
+          style={styles.campoSelecao}
+          onPress={() => {
+            setListaTurmasAberta(
+              !listaTurmasAberta
+            );
+
+            setListaEscolasAberta(false);
+          }}
+        >
+          <Text
+            style={[
+              styles.textoSelecao,
+              !turma &&
+                styles.textoPlaceholder,
+            ]}
+          >
+            {turma ||
+              "Selecione sua turma"}
+          </Text>
+
+          <Text style={styles.seta}>
+            {listaTurmasAberta
+              ? "▲"
+              : "▼"}
+          </Text>
+        </TouchableOpacity>
+
+        {listaTurmasAberta && (
+          <View style={styles.listaSelecao}>
+            {turmas.map((item) => (
+              <TouchableOpacity
+                key={item}
+                style={styles.opcaoSelecao}
+                onPress={() =>
+                  escolherTurma(item)
+                }
+              >
+                <Text style={styles.textoOpcao}>
+                  {item}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         <Text style={styles.rotulo}>
           Turno
@@ -344,23 +399,42 @@ export default function CadastroScreen({ navigation }) {
 
         <View style={styles.linhaTurnos}>
           {[
-            { id: "manha", nome: "Manhã", icone: "☀️" },
-            { id: "tarde", nome: "Tarde", icone: "🌤️" },
-            { id: "noite", nome: "Noite", icone: "🌙" },
+            {
+              id: "manha",
+              nome: "Manhã",
+              icone: "☀️",
+            },
+            {
+              id: "tarde",
+              nome: "Tarde",
+              icone: "🌤️",
+            },
+            {
+              id: "noite",
+              nome: "Noite",
+              icone: "🌙",
+            },
           ].map((item) => (
             <TouchableOpacity
               key={item.id}
               style={[
                 styles.botaoTurno,
-                turno === item.id && styles.botaoTurnoAtivo,
+                turno === item.id &&
+                  styles.botaoTurnoAtivo,
               ]}
-              onPress={() => setTurno(item.id)}
+              onPress={() =>
+                setTurno(item.id)
+              }
             >
-              <Text style={styles.iconeTurno}>{item.icone}</Text>
+              <Text style={styles.iconeTurno}>
+                {item.icone}
+              </Text>
+
               <Text
                 style={[
                   styles.textoTurno,
-                  turno === item.id && styles.textoTurnoAtivo,
+                  turno === item.id &&
+                    styles.textoTurnoAtivo,
                 ]}
               >
                 {item.nome}
@@ -374,16 +448,18 @@ export default function CadastroScreen({ navigation }) {
         </Text>
 
         <TouchableOpacity
-          style={styles.campoEscola}
-          onPress={() =>
+          style={styles.campoSelecao}
+          onPress={() => {
             setListaEscolasAberta(
               !listaEscolasAberta
-            )
-          }
+            );
+
+            setListaTurmasAberta(false);
+          }}
         >
           <Text
             style={[
-              styles.textoEscola,
+              styles.textoSelecao,
               !escola &&
                 styles.textoPlaceholder,
             ]}
@@ -400,9 +476,9 @@ export default function CadastroScreen({ navigation }) {
         </TouchableOpacity>
 
         {listaEscolasAberta && (
-          <View style={styles.listaEscolas}>
+          <View style={styles.listaSelecao}>
             <TouchableOpacity
-              style={styles.opcaoEscola}
+              style={styles.opcaoSelecao}
               onPress={() =>
                 escolherEscola(
                   "Antônio Guglielmi Sobrinho"
@@ -415,7 +491,7 @@ export default function CadastroScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.opcaoEscola}
+              style={styles.opcaoSelecao}
               onPress={() =>
                 escolherEscola(
                   "Satc"
@@ -535,7 +611,7 @@ export default function CadastroScreen({ navigation }) {
             style={styles.linkEntrar}
             onPress={() =>
               navigation.navigate(
-                "TelaLogin"
+                "Login"
               )
             }
           >
@@ -632,6 +708,58 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
 
+  campoSelecao: {
+    minHeight: 48,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.3,
+    borderColor: "#D6E2D0",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+
+  textoSelecao: {
+    flex: 1,
+    fontSize: 14,
+    color: "#1E2B21",
+  },
+
+  textoPlaceholder: {
+    color: "#94A097",
+  },
+
+  seta: {
+    color: "#2F6B4F",
+    fontSize: 11,
+    fontWeight: "800",
+  },
+
+  listaSelecao: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1.3,
+    borderColor: "#D6E2D0",
+    borderRadius: 14,
+    marginTop: -8,
+    marginBottom: 15,
+    overflow: "hidden",
+  },
+
+  opcaoSelecao: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8EFE4",
+  },
+
+  textoOpcao: {
+    fontSize: 14,
+    color: "#1E2B21",
+    fontWeight: "600",
+  },
+
   linhaTurnos: {
     flexDirection: "row",
     gap: 8,
@@ -668,58 +796,6 @@ const styles = StyleSheet.create({
 
   textoTurnoAtivo: {
     color: "#FFFFFF",
-  },
-
-  campoEscola: {
-    minHeight: 48,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.3,
-    borderColor: "#D6E2D0",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 15,
-  },
-
-  textoEscola: {
-    flex: 1,
-    fontSize: 14,
-    color: "#1E2B21",
-  },
-
-  textoPlaceholder: {
-    color: "#94A097",
-  },
-
-  seta: {
-    color: "#2F6B4F",
-    fontSize: 11,
-    fontWeight: "800",
-  },
-
-  listaEscolas: {
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1.3,
-    borderColor: "#D6E2D0",
-    borderRadius: 14,
-    marginTop: -8,
-    marginBottom: 15,
-    overflow: "hidden",
-  },
-
-  opcaoEscola: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E8EFE4",
-  },
-
-  textoOpcao: {
-    fontSize: 14,
-    color: "#1E2B21",
-    fontWeight: "600",
   },
 
   aviso: {
