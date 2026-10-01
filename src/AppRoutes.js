@@ -1,9 +1,17 @@
 import React from "react";
 
-import { StyleSheet, Text } from "react-native";
+import {
+  StyleSheet,
+  Text,
+} from "react-native";
 
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import {
+  createNativeStackNavigator,
+} from "@react-navigation/native-stack";
+
+import {
+  createBottomTabNavigator,
+} from "@react-navigation/bottom-tabs";
 
 import TelaInicial from "./routes/screens/TelaInicial";
 import TelaLogin from "./routes/screens/TelaLogin";
@@ -15,12 +23,17 @@ import TelaPerfilAluno from "./routes/screens/TelaPerfilAluno";
 import TelaDeFeedbackAdmin from "./routes/screens/TelaDeFeedbackAdmin";
 import TelaDeFeedbackAluno from "./routes/screens/TelaFeedbackAluno";
 
+import CadastroAdmin from "./routes/screens/CadastroAdmin";
+import EscolhaCadastro from "./routes/screens/EscolhaCadastro";
+import VerificarAdmin from "./routes/screens/VerificarAdmin";
+
 import ConsentimentoNavigator from "./routes/screens/ConsentimentoNavigator";
 
+const NavegadorPrincipal =
+  createNativeStackNavigator();
 
-const NavegadorPrincipal = createNativeStackNavigator();
-const NavegadorAbas = createBottomTabNavigator();
-
+const NavegadorAbas =
+  createBottomTabNavigator();
 
 function MenuAluno() {
   return (
@@ -34,7 +47,9 @@ function MenuAluno() {
         options={{
           title: "Cardápio",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -54,7 +69,9 @@ function MenuAluno() {
         options={{
           title: "Confirmar",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -74,7 +91,9 @@ function MenuAluno() {
         options={{
           title: "Feedback",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -94,7 +113,9 @@ function MenuAluno() {
         options={{
           title: "Perfil",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -111,7 +132,6 @@ function MenuAluno() {
   );
 }
 
-
 function MenuEquipe() {
   return (
     <NavegadorAbas.Navigator
@@ -124,7 +144,9 @@ function MenuEquipe() {
         options={{
           title: "Início",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -144,7 +166,9 @@ function MenuEquipe() {
         options={{
           title: "Cardápio",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -164,7 +188,9 @@ function MenuEquipe() {
         options={{
           title: "Feedback",
 
-          tabBarIcon: ({ focused: estaSelecionado }) => (
+          tabBarIcon: ({
+            focused: estaSelecionado,
+          }) => (
             <Text
               style={
                 estaSelecionado
@@ -181,12 +207,13 @@ function MenuEquipe() {
   );
 }
 
-
 export default function RotasAplicativo() {
   return (
     <NavegadorPrincipal.Navigator
       initialRouteName="Inicial"
-      screenOptions={{ headerShown: false }}
+      screenOptions={{
+        headerShown: false,
+      }}
     >
       <NavegadorPrincipal.Screen
         name="Inicial"
@@ -196,6 +223,21 @@ export default function RotasAplicativo() {
       <NavegadorPrincipal.Screen
         name="Login"
         component={TelaLogin}
+      />
+
+      <NavegadorPrincipal.Screen
+        name="EscolhaCadastro"
+        component={EscolhaCadastro}
+      />
+
+      <NavegadorPrincipal.Screen
+        name="VerificarAdmin"
+        component={VerificarAdmin}
+      />
+
+      <NavegadorPrincipal.Screen
+        name="CadastroAdmin"
+        component={CadastroAdmin}
       />
 
       <NavegadorPrincipal.Screen
@@ -215,7 +257,6 @@ export default function RotasAplicativo() {
     </NavegadorPrincipal.Navigator>
   );
 }
-
 
 const estilos = StyleSheet.create({
   barraNavegacao: {
@@ -241,15 +282,18 @@ const estilos = StyleSheet.create({
   },
 });
 
-
 const opcoesMenuInferior = {
   headerShown: false,
 
-  tabBarActiveTintColor: "#2F6B4F",
+  tabBarActiveTintColor:
+    "#2F6B4F",
 
-  tabBarInactiveTintColor: "#8A978B",
+  tabBarInactiveTintColor:
+    "#8A978B",
 
-  tabBarStyle: estilos.barraNavegacao,
+  tabBarStyle:
+    estilos.barraNavegacao,
 
-  tabBarLabelStyle: estilos.textoAba,
+  tabBarLabelStyle:
+    estilos.textoAba,
 };

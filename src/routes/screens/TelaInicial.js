@@ -13,9 +13,7 @@ export default function TelaInicial({ navigation }) {
   }
 
   function abrirCadastro() {
-    navigation.navigate("Consentimento", {
-      screen: "Cadastro",
-    });
+    navigation.navigate("EscolhaCadastro");
   }
 
   function abrirTermos() {
@@ -44,43 +42,59 @@ export default function TelaInicial({ navigation }) {
       <View style={styles.conteudo}>
         <View style={styles.topo}>
           <View style={styles.tag}>
-            <Text style={styles.tagEmoji}>🌱</Text>
-            <Text style={styles.tagTexto}>Menos desperdício</Text>
+            <Text style={styles.tagEmoji}>
+              🌱
+            </Text>
+
+            <Text style={styles.tagTexto}>
+              Menos desperdício
+            </Text>
           </View>
         </View>
 
         <View style={styles.areaPrincipal}>
           <View style={styles.logoContainer}>
             <View style={styles.logoFundo}>
-              <Text style={styles.logoEmoji}>🍽️</Text>
+              <Text style={styles.logoEmoji}>
+                🍽️
+              </Text>
             </View>
 
             <View style={styles.detalheLogo}>
-              <Text style={styles.detalheLogoTexto}>✓</Text>
+              <Text style={styles.detalheLogoTexto}>
+                ✓
+              </Text>
             </View>
           </View>
 
-          <Text style={styles.titulo}>Prato Certo</Text>
+          <Text style={styles.titulo}>
+            Prato Certo
+          </Text>
 
           <Text style={styles.subtitulo}>
-            Alimentação escolar mais organizada, prática e inteligente.
+            Alimentação escolar mais organizada,
+            prática e inteligente.
           </Text>
 
           <Text style={styles.descricao}>
-            Confirme suas refeições com antecedência e ajude a escola a preparar
-            a quantidade certa de alimentos todos os dias.
+            Confirme suas refeições com antecedência e
+            ajude a escola a preparar a quantidade certa
+            de alimentos todos os dias.
           </Text>
 
           <View style={styles.areaBeneficios}>
             <View style={styles.cardBeneficio}>
               <View style={styles.iconeBeneficio}>
-                <Text style={styles.iconeTexto}>📅</Text>
+                <Text style={styles.iconeTexto}>
+                  📅
+                </Text>
               </View>
 
               <View style={styles.infoBeneficio}>
                 <Text style={styles.tituloBeneficio}>
                   Confirmação antecipada
                 </Text>
+
                 <Text style={styles.textoBeneficio}>
                   Informe quando você vai realizar sua refeição.
                 </Text>
@@ -89,13 +103,16 @@ export default function TelaInicial({ navigation }) {
 
             <View style={styles.cardBeneficio}>
               <View style={styles.iconeBeneficio}>
-                <Text style={styles.iconeTexto}>📊</Text>
+                <Text style={styles.iconeTexto}>
+                  📊
+                </Text>
               </View>
 
               <View style={styles.infoBeneficio}>
                 <Text style={styles.tituloBeneficio}>
                   Melhor planejamento
                 </Text>
+
                 <Text style={styles.textoBeneficio}>
                   A escola prepara os alimentos com mais precisão.
                 </Text>
@@ -104,13 +121,16 @@ export default function TelaInicial({ navigation }) {
 
             <View style={styles.cardBeneficio}>
               <View style={styles.iconeBeneficio}>
-                <Text style={styles.iconeTexto}>⭐</Text>
+                <Text style={styles.iconeTexto}>
+                  ⭐
+                </Text>
               </View>
 
               <View style={styles.infoBeneficio}>
                 <Text style={styles.tituloBeneficio}>
                   Avalie as refeições
                 </Text>
+
                 <Text style={styles.textoBeneficio}>
                   Seu feedback ajuda a melhorar o cardápio.
                 </Text>
@@ -119,7 +139,13 @@ export default function TelaInicial({ navigation }) {
           </View>
 
           <View style={styles.indicadores}>
-            <View style={[styles.indicador, styles.indicadorAtivo]} />
+            <View
+              style={[
+                styles.indicador,
+                styles.indicadorAtivo,
+              ]}
+            />
+
             <View style={styles.indicador} />
             <View style={styles.indicador} />
           </View>
@@ -129,8 +155,13 @@ export default function TelaInicial({ navigation }) {
             activeOpacity={0.85}
             onPress={abrirLogin}
           >
-            <Text style={styles.textoBotaoEntrar}>Entrar</Text>
-            <Text style={styles.setaBotao}>→</Text>
+            <Text style={styles.textoBotaoEntrar}>
+              Entrar
+            </Text>
+
+            <Text style={styles.setaBotao}>
+              →
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -138,16 +169,24 @@ export default function TelaInicial({ navigation }) {
             activeOpacity={0.85}
             onPress={abrirCadastro}
           >
-            <Text style={styles.textoBotaoCriarConta}>Criar conta</Text>
+            <Text style={styles.textoBotaoCriarConta}>
+              Criar conta
+            </Text>
           </TouchableOpacity>
 
           <Text style={styles.textoRodape}>
             Ao continuar, você concorda com nossos{" "}
-            <Text style={styles.link} onPress={abrirTermos}>
+            <Text
+              style={styles.link}
+              onPress={abrirTermos}
+            >
               Termos de Uso
             </Text>{" "}
             e{" "}
-            <Text style={styles.link} onPress={abrirPolitica}>
+            <Text
+              style={styles.link}
+              onPress={abrirPolitica}
+            >
               Política de Privacidade
             </Text>
             .
@@ -221,13 +260,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
 
     shadowColor: "#1F543D",
+
     shadowOffset: {
       width: 0,
       height: 8,
     },
+
     shadowOpacity: 0.12,
     shadowRadius: 14,
-
     elevation: 6,
   },
 
@@ -300,10 +340,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     shadowColor: "#1F543D",
+
     shadowOffset: {
       width: 0,
       height: 4,
     },
+
     shadowOpacity: 0.06,
     shadowRadius: 10,
 
@@ -373,10 +415,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
 
     shadowColor: "#347A59",
+
     shadowOffset: {
       width: 0,
       height: 7,
     },
+
     shadowOpacity: 0.22,
     shadowRadius: 12,
 
