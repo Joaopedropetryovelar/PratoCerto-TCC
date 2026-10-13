@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {PDFDocument} from 'pdf-lib';
+import {gerarPdf} from '../src/domain/relatorioPdf.js';
+const opcoes={escola:'Satc',inicio:'2026-10-01',fim:'2026-10-12',turno:'manha',demo:true};
+const registro={schemaVersion:2,escola:'Satc',data:'2026-10-01',turno:'manha',refeicaoId:'r',refeicaoNome:'Arroz e feijão',sobraTotalG:30000,servidos:100,observacao:'Observação com acentuação.'};
+test('V4 — PDF é válido, com título e páginas A4',async()=>{const bytes=await gerarPdf([registro],opcoes);assert.equal(new TextDecoder().decode(bytes.slice(0,5)),'%PDF-');const doc=await PDFDocument.load(bytes);assert.match(doc.getTitle(),/Prato Certo/);assert.ok(doc.getPageCount()>=1);assert.equal(Math.round(doc.getPage(0).getSize().width),595);});
+test('V4 — PDF longo não corta o período por causa da paginação da interface',async()=>{const registros=Array.from({length:60},(_,i)=>({...registro,refeicaoId:`r${i}`,refeicaoNome:`Prato ${i} ${'Nome longo '.repeat(8)}`,observacao:`Registro ${i}. ${'Observação muito longa, com dados completos. '.repeat(10)}`}));const doc=await PDFDocument.load(await gerarPdf(registros,opcoes));assert.ok(doc.getPageCount()>10);});

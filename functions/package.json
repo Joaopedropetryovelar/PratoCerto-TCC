@@ -1,0 +1,8 @@
+{
+  "name": "pratocerto-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": { "node": "22" },
+  "dependencies": { "firebase-admin": "^13.6.0", "firebase-functions": "^6.6.0" },
+  "scripts": { "test": "node --test ../tests/convites.test.cjs" }
+}

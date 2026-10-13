@@ -1,0 +1,24 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {turnosDoPerfil,podeConsumir,pertenceEscola,chaveEscola} from '../src/domain/escolas.js';
+import {emailValido,erroSenha,validarCadastro} from '../src/domain/contas.js';
+import {semanaVisivel,erroAvaliacao,limiteAvaliacao,gradeMes,moverMes,proximoDiaUtil} from '../src/domain/calendario.js';
+import {erroConfirmacao,dataDaEscola,instanteEscola} from '../src/domain/refeicoes.js';
+const r={id:'r',escola:'Satc',data:'2026-10-09',turno:'manha',ativo:true,horarioLimite:'09:00',horarioFim:'12:30'};
+test('01 — perfil legado de um turno continua legível',()=>assert.deepEqual(turnosDoPerfil({turno:'tarde'}),['tarde']));
+test('02 — múltiplos turnos sem duplicação e sem turno desconhecido',()=>assert.deepEqual(turnosDoPerfil({turnos:['tarde','manha','manha','fake']}),['manha','tarde']));
+test('03 — usuário acessa somente sua escola e turnos cadastrados',()=>{assert.equal(podeConsumir(r,{escola:'Satc',turnos:['manha','tarde']}),true);assert.equal(podeConsumir({...r,turno:'noite'},{escola:'Satc',turnos:['manha','tarde']}),false);assert.equal(podeConsumir(r,{escola:'Antônio Guglielmi Sobrinho',turno:'manha'}),false);});
+test('04 — registros sem escola e escola desconhecida não são compartilhados',()=>{assert.equal(pertenceEscola({}, {escola:'Satc'}),false);assert.throws(()=>chaveEscola('Qualquer escola'));});
+test('05 — e-mails inválidos, vazios e com espaços são rejeitados',()=>{for(const e of ['', 'abc','x@site','x@site..com','x y@site.com','x@@site.com'])assert.equal(emailValido(e),false);assert.equal(emailValido(' aluno@escola.com.br '),true);});
+test('06 — senha exige letra, número e símbolo sem exigir asterisco literal',()=>{assert.equal(erroSenha('Abc12345!'),null);assert.equal(erroSenha('Abc12345*'),null);for(const s of ['curta1!','abcdefgh!','12345678!','abc12345'])assert.ok(erroSenha(s));});
+test('07 — cadastro com dois turnos e consentimento é válido',()=>assert.deepEqual(validarCadastro({nome:'Aluno Teste',matricula:'00123',turma:'3º ano',turnos:['manha','tarde'],escola:'Satc',email:'a@b.com',senha:'Abc12345!',confirmarSenha:'Abc12345!',aceitouTermos:true}),{}));
+test('08 — cadastro rejeita turno repetido, divergência de senha e falta de aceite',()=>{const e=validarCadastro({turnos:['manha','manha'],senha:'Abc12345!',confirmarSenha:'outra'});assert.ok(e.turnos&&e.confirmarSenha&&e.termos);});
+test('09 — fim de semana avança para segunda sem sábado/domingo',()=>{for(const d of ['2026-10-10T12:00:00-03:00','2026-10-11T12:00:00-03:00']){const dias=semanaVisivel(new Date(d));assert.equal(dias[0].id,'2026-10-12');assert.equal(dias.length,5);}});
+test('10 — sexta só avança após última refeição publicada',()=>{const lista=[r,{...r,id:'n',turno:'noite',horarioFim:'20:00'}];assert.equal(semanaVisivel(new Date('2026-10-09T19:59:00-03:00'),lista)[0].id,'2026-10-05');assert.equal(semanaVisivel(new Date('2026-10-09T20:00:00-03:00'),lista)[0].id,'2026-10-12');});
+test('11 — sexta com apenas manhã avança ao término da manhã',()=>assert.equal(semanaVisivel(new Date('2026-10-09T12:30:00-03:00'),[r])[0].id,'2026-10-12'));
+test('12 — confirmação de dois turnos abre antes e fecha exatamente no prazo de Brasília',()=>{assert.equal(erroConfirmacao(r,['manha','tarde'],new Date('2026-10-09T08:59:59-03:00')),null);assert.ok(erroConfirmacao(r,['manha','tarde'],new Date('2026-10-09T09:00:00-03:00')));});
+test('13 — avaliação só abre no fim da refeição',()=>{assert.ok(erroAvaliacao(r,new Date('2026-10-09T12:29:59-03:00')));assert.equal(erroAvaliacao(r,new Date('2026-10-09T12:30:00-03:00')),null);});
+test('14 — avaliação de sexta fica até segunda e fecha terça',()=>{assert.equal(limiteAvaliacao(r).toISOString(),'2026-10-13T02:59:59.999Z');assert.equal(erroAvaliacao(r,new Date('2026-10-12T23:59:59-03:00')),null);assert.ok(erroAvaliacao(r,new Date('2026-10-13T00:00:00-03:00')));});
+test('15 — data da escola é de Brasília mesmo com aparelho em outro fuso',()=>assert.equal(dataDaEscola(new Date('2026-10-12T01:00:00Z')),'2026-10-11'));
+test('16 — calendário alinha segunda-feira e atravessa mês/ano',()=>{const dias=gradeMes('2026-10-12');assert.equal(dias.length,42);assert.equal(dias[0].id,'2026-09-28');assert.equal(moverMes('2026-12-31',1),'2027-01-01');assert.equal(proximoDiaUtil('2026-12-31'),'2027-01-01');});
+
+test('17 — horário da escola vira instante UTC independente do fuso do aparelho',()=>{assert.equal(instanteEscola('2026-10-12','09:00').toISOString(),'2026-10-12T12:00:00.000Z');assert.throws(()=>instanteEscola('2026-02-30','09:00'));});

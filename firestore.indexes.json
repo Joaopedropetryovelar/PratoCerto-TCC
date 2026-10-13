@@ -1,0 +1,79 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "NomePratos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "confirmacoes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "feedbacks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "producao",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "feedbacks",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "alunoId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

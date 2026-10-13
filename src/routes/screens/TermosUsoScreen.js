@@ -1,6 +1,6 @@
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -81,11 +81,11 @@ export default function TermosUsoScreen({ navigation }) {
 
           <View style={styles.versionBox}>
             <Text style={styles.version}>
-              Versão: 1.0
+              Versão: 2026-10-13
             </Text>
 
             <Text style={styles.version}>
-              Consulte a data de atualização publicada pela instituição.
+              Atualização: 13/10/2026.
             </Text>
           </View>
         </View>

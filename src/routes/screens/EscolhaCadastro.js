@@ -1,7 +1,7 @@
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 
 import {
-  SafeAreaView,
   StatusBar,
   StyleSheet,
   Text,

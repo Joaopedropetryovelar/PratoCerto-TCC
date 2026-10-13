@@ -1,8 +1,11 @@
+import TelaRestricoesAdmin from './routes/screens/TelaRestricoesAdmin';
+import Icone from './components/Icone';
 import React from "react";
 
 import {
   StyleSheet,
   Text,
+  View,
 } from "react-native";
 
 import {
@@ -14,6 +17,8 @@ import {
 } from "@react-navigation/bottom-tabs";
 
 import TelaInicial from "./routes/screens/TelaInicial";
+import TelaEsqueciSenha from "./routes/screens/TelaEsqueciSenha";
+import TelaVerificarEmail from "./routes/screens/TelaVerificarEmail";
 import TelaLogin from "./routes/screens/TelaLogin";
 import TelaHomeAluno from "./routes/screens/TelaHomeAluno";
 import TelaCardapioAdmin from "./routes/screens/AdminCardapio";
@@ -29,14 +34,24 @@ import VerificarAdmin from "./routes/screens/VerificarAdmin";
 
 import ConsentimentoNavigator from "./routes/screens/ConsentimentoNavigator";
 
+import TelaProducao from "./routes/screens/TelaProducao";
+import TelaRelatorios from "./routes/screens/TelaRelatorios";
+import TelaDemonstracao from "./routes/screens/TelaDemonstracao";
+import { ContextoAviso } from "./components/Interface";
+import { estaEmDemo } from "./services/demo";
+import AreaProtegida from "./components/AreaProtegida";
+import AvisoDemonstracao from "./components/AvisoDemonstracao";
+
 const NavegadorPrincipal =
   createNativeStackNavigator();
 
 const NavegadorAbas =
   createBottomTabNavigator();
 
-function MenuAluno() {
+function MenuAluno({ navigation }) {
   return (
+    <AreaProtegida tipoConta="aluno" navigation={navigation}><ContextoAviso.Provider value={estaEmDemo()}><View style={{ flex: 1 }}>
+    <AvisoDemonstracao navigation={navigation} />
     <NavegadorAbas.Navigator
       initialRouteName="Cardapio"
       screenOptions={opcoesMenuInferior}
@@ -50,15 +65,7 @@ function MenuAluno() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              🏠
-            </Text>
+            <Icone nome="inicio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
@@ -72,15 +79,7 @@ function MenuAluno() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              ✅
-            </Text>
+            <Icone nome="confirmar" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
@@ -94,15 +93,7 @@ function MenuAluno() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              💬
-            </Text>
+            <Icone nome="feedback" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
@@ -116,24 +107,19 @@ function MenuAluno() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              👤
-            </Text>
+            <Icone nome="perfil" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
     </NavegadorAbas.Navigator>
+    </View></ContextoAviso.Provider></AreaProtegida>
   );
 }
 
-function MenuEquipe() {
+function MenuEquipe({ navigation }) {
   return (
+    <AreaProtegida tipoConta="admin" navigation={navigation}><ContextoAviso.Provider value={estaEmDemo()}><View style={{ flex: 1 }}>
+    <AvisoDemonstracao navigation={navigation} />
     <NavegadorAbas.Navigator
       initialRouteName="DashboardAdmin"
       screenOptions={opcoesMenuInferior}
@@ -147,15 +133,7 @@ function MenuEquipe() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              🏠
-            </Text>
+            <Icone nome="inicio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
@@ -169,18 +147,13 @@ function MenuEquipe() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              🍽️
-            </Text>
+            <Icone nome="cardapio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
+
+      <NavegadorAbas.Screen name="Producao" component={TelaProducao} options={{ title: "Produção", tabBarIcon: ({ focused }) => <Icone nome="producao" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
+      <NavegadorAbas.Screen name="Relatorios" component={TelaRelatorios} options={{ title: "Relatórios", tabBarIcon: ({ focused }) => <Icone nome="relatorios" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
 
       <NavegadorAbas.Screen
         name="FeedbackAdmin"
@@ -191,19 +164,12 @@ function MenuEquipe() {
           tabBarIcon: ({
             focused: estaSelecionado,
           }) => (
-            <Text
-              style={
-                estaSelecionado
-                  ? estilos.iconeSelecionado
-                  : estilos.iconeNaoSelecionado
-              }
-            >
-              💬
-            </Text>
+            <Icone nome="feedback" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
           ),
         }}
       />
     </NavegadorAbas.Navigator>
+    </View></ContextoAviso.Provider></AreaProtegida>
   );
 }
 
@@ -219,6 +185,11 @@ export default function RotasAplicativo() {
         name="Inicial"
         component={TelaInicial}
       />
+
+      <NavegadorPrincipal.Screen name="RestricoesAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRestricoesAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
+      <NavegadorPrincipal.Screen name="EsqueciSenha" component={TelaEsqueciSenha} />
+      <NavegadorPrincipal.Screen name="VerificarEmail" component={TelaVerificarEmail} />
+      <NavegadorPrincipal.Screen name="Demonstracao" component={TelaDemonstracao} />
 
       <NavegadorPrincipal.Screen
         name="Login"
@@ -260,16 +231,15 @@ export default function RotasAplicativo() {
 
 const estilos = StyleSheet.create({
   barraNavegacao: {
-    height: 70,
     backgroundColor: "#FFFFFF",
     borderTopColor: "#DCE8D2",
     borderTopWidth: 1,
-    paddingTop: 7,
-    paddingBottom: 8,
+    paddingTop: 8,
+    minHeight: 66,
   },
 
   textoAba: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
   },
 

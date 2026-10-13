@@ -1,6 +1,6 @@
+import { SafeAreaView } from "react-native-safe-area-context";
 import React from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,25 +13,30 @@ const POLITICA = [
   {
     titulo: '1. Quais dados coletamos',
     texto:
-      'Podemos coletar informações como nome, matrícula, e-mail, escola, turma, registros de refeições e feedbacks enviados pelo usuário.',
+      'O cadastro utiliza nome, matrícula, e-mail, escola, turma e turnos. As confirmações e avaliações ficam vinculadas à sua conta. A senha é gerenciada pelo Firebase Authentication e não é gravada no perfil escolar. As restrições alimentares são opcionais e ficam em um registro separado, com autorização específica.',
   },
   {
     titulo: '2. Como usamos seus dados',
     texto:
-      'Os dados são utilizados para identificar a conta, vincular o usuário à escola, exibir o cardápio correto, registrar refeições e receber avaliações sobre a alimentação escolar.',
+      'Os dados identificam sua conta e vinculam suas respostas à escola. A equipe autorizada da sua escola pode consultar suas confirmações e avaliações identificadas. Outros alunos não têm acesso às suas respostas. Os relatórios de produção registram quantidades, sem uma lista de nomes dos alunos.',
   },
   {
     titulo: '3. Compartilhamento de dados',
     texto:
-      'Os dados não devem ser compartilhados com terceiros sem uma finalidade legítima e sem observar as regras aplicáveis de privacidade e proteção de dados.',
+      'O aplicativo utiliza Firebase Authentication e Cloud Firestore, serviços do Google, para autenticação e armazenamento. O Authentication processa dados nos Estados Unidos. Outros locais de processamento dependem do serviço e da configuração da instituição. O compartilhamento e a transferência internacional devem ser avaliados pela instituição responsável.',
   },
   {
     titulo: '4. Seus direitos',
     texto:
-      'O usuário ou responsável pode solicitar acesso, correção e outras providências relacionadas aos seus dados pelos canais definidos pela instituição responsável pelo aplicativo.',
+      'O usuário ou responsável pode solicitar acesso, correção, exclusão, anonimização e outras providências pelos canais definidos pela instituição. O perfil do aluno possui uma opção de pedido sobre dados pessoais, registrada para a equipe da própria escola. As restrições alimentares podem ser atualizadas ou retiradas no perfil. A retirada remove a declaração do registro ativo, sem excluir a conta e o histórico de refeições. Os pedidos sobre os demais dados são analisados pela instituição conforme as regras de conservação aplicáveis.',
   },
   {
-    titulo: '5. Segurança',
+    titulo: '5. Informações alimentares e de saúde',
+    texto:
+      'Intolerâncias e alergias são informações de saúde sensíveis. O preenchimento é opcional, deve ser feito pelo aluno adulto ou responsável legal e exige autorização específica para o planejamento e atendimento das refeições e estatísticas internas. Somente o próprio aluno e a equipe autorizada da sua escola podem acessar o registro. A tela de estatísticas apresenta totais, sem nomes ou relatos. A instituição deve validar a identidade do declarante e as informações antes de adaptar o atendimento; o aplicativo não faz diagnóstico nem garante a adequação de um prato.',
+  },
+  {
+    titulo: '6. Segurança',
     texto:
       'São adotadas medidas de segurança para reduzir riscos de acesso, alteração ou divulgação não autorizada dos dados armazenados.',
   },
@@ -86,11 +91,11 @@ export default function PoliticaPrivacidadeScreen({ navigation }) {
 
           <View style={styles.versionBox}>
             <Text style={styles.version}>
-              Versão: 1.0
+              Versão: 2026-10-13
             </Text>
 
             <Text style={styles.version}>
-              Consulte a data de atualização publicada pela instituição.
+              Atualização: 13/10/2026.
             </Text>
           </View>
         </View>

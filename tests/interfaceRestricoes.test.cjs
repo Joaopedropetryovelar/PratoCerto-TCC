@@ -1,0 +1,61 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const React = require('react');
+const { criarRuntime, agir, host, porId, texto } = require('./runtime.cjs');
+const fechar = (t) => agir(() => t.unmount());
+test('demonstração entra como equipe com dados fictícios e painel disponível', async () => {
+  const r = criarRuntime(); r.demo(); const rotas = [];
+  const t = await r.render('src/routes/screens/TelaDemonstracao.js', { navigation: { reset: (v) => rotas.push(v), navigate() {}, goBack() {} } });
+  await agir(() => porId(t, 'demo-equipe').props.onPress());
+  assert.equal(rotas.at(-1).routes[0].name, 'HomeAdmin');
+  assert.equal(r.backend().auth.currentUser.uid, 'demo-admin'); await fechar(t);
+  const painel = await r.render('src/routes/screens/DashboardAdmin.js', { navigation: { getParent: () => ({ navigate() {} }) } });
+  assert.ok(porId(painel, 'abrir-restricoes-admin')); await fechar(painel);
+});
+test('formulário reinicia autorização ao alterar uma informação de saúde', async () => {
+  const r = criarRuntime(), comp = r.carregar('src/components/FormularioRestricoes.js').default;
+  let valor = { situacao:'informadas', itens:['intolerancia_lactose'], outra:'', declarante:'responsavel', nomeResponsavel:'Nome Teste', autorizou:true };
+  const props = () => ({ valor, onChange: (v) => { valor = v; } });
+  const t = await r.render('src/components/FormularioRestricoes.js', props());
+  await agir(() => porId(t,'restricao-alergia_leite').props.onPress()); assert.equal(valor.autorizou,false);
+  await agir(() => t.update(React.createElement(comp,props())));
+  await agir(() => porId(t,'autorizar-restricoes').props.onPress()); assert.equal(valor.autorizou,true);
+  assert.deepEqual(valor.itens,['intolerancia_lactose','alergia_leite']); await fechar(t);
+});
+test('perfil salva restrição com autorização e permite retirar a declaração', async () => {
+  const r = criarRuntime(); await r.demo().entrarDemonstracao('aluno','multi');
+  const t = await r.render('src/components/RestricoesAluno.js');
+  assert.match(texto(t),/Alergia ao leite/);
+  await agir(() => porId(t,'editar-restricoes').props.onPress());
+  await agir(() => porId(t,'restricao-intolerancia_lactose').props.onPress());
+  await agir(() => porId(t,'salvar-restricoes').props.onPress()); assert.match(texto(t),/Autorize especificamente/);
+  await agir(() => porId(t,'autorizar-restricoes').props.onPress());
+  await agir(() => porId(t,'salvar-restricoes').props.onPress()); assert.match(texto(t),/Intolerância à lactose/);
+  await agir(() => porId(t,'retirar-restricoes').props.onPress());
+  const confirmar = r.alertas.at(-1)[2].find((b) => b.text === 'Retirar'); await agir(() => confirmar.onPress());
+  assert.match(texto(t),/Ainda não informado/); assert.ok(!host(t,(n) => n.props.testID === 'retirar-restricoes')); await fechar(t);
+});
+test('perfil registra solicitação LGPD de exclusão de dados', async () => {
+  const r = criarRuntime(); await r.demo().entrarDemonstracao('aluno','manha');
+  const t = await r.render('src/routes/screens/TelaPerfilAluno.js', { navigation: { getParent: () => ({ navigate() {}, reset() {} }) } });
+  await agir(() => porId(t, 'solicitar-exclusao-dados').props.onPress());
+  assert.match(texto(t), /Pedir revisão ou exclusão de dados/);
+  await agir(() => porId(t, 'registrar-solicitacao-lgpd').props.onPress());
+  const backend = r.backend();
+  const snap = await backend.getDoc(backend.doc(backend.database, 'solicitacoesPrivacidade', 'demo-aluno-manha'));
+  assert.equal(snap.data().status, 'pendente');
+  assert.equal(snap.data().tipo, 'exclusao_dados');
+  assert.match(r.alertas.at(-1)[1], /equipe da sua escola/);
+  await fechar(t);
+});
+test('estatísticas exibem totais por turno sem os nomes das declarações', async () => {
+  const r = criarRuntime(); await r.demo().entrarDemonstracao('admin');
+  const t = await r.render('src/routes/screens/TelaRestricoesAdmin.js',{ navigation:{ goBack(){} } });
+  const metricas = () => Object.fromEntries(t.root.findAll((n) => typeof n.type==='function' && n.type.name==='Indicador').map((n) => [n.props.label,n.props.valor]));
+  assert.equal(metricas()['Alunos cadastrados'],4); assert.equal(metricas()['Com restrições declaradas'],2); assert.equal(metricas()['Ainda não informaram'],1);
+  assert.equal(metricas()['Porções com atenção'],2); assert.equal(metricas()['Leite ou lactose'],2); assert.equal(metricas()['Alergias críticas'],1);
+  assert.match(texto(t),/Impacto na produção/);
+  assert.doesNotMatch(texto(t),/Responsável fictício|Aluno de dois turnos/);
+  await agir(() => host(t,(n) => n.props.accessibilityLabel==='Noite').props.onPress());
+  assert.equal(metricas()['Alunos cadastrados'],1); assert.equal(metricas()['Ainda não informaram'],1); await fechar(t);
+});

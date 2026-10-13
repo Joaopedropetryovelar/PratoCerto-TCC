@@ -1,0 +1,197 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function perfil() { return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data; }
+    function escolaValida(escola) { return escola in ['Satc', 'Antônio Guglielmi Sobrinho']; }
+    function verified() { return signed() && request.auth.token.email_verified == true && escolaValida(perfil().escola); }
+    function admin() { return verified() && perfil().tipoConta == 'admin'; }
+    function aluno() { return verified() && perfil().tipoConta == 'aluno'; }
+    function minhaEscola(d) { return verified() && d.escola == perfil().escola; }
+    function turno(t) { return t in ['manha', 'tarde', 'noite']; }
+    function meusTurnos() { return perfil().get('turnos', [perfil().get('turno', '')]); }
+    function texto(v, minimo, maximo) { return v is string && v.size() >= minimo && v.size() <= maximo; }
+    function data(v) { return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function hora(v) { return v is string && v.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'); }
+    function inteiro(v, maximo) { return v is int && v >= 0 && v <= maximo; }
+    function chaveEscola(e) { return e == 'Satc' ? 'satc' : 'ags'; }
+    function mesmaRefeicao(d) {
+      let r = get(/databases/$(database)/documents/NomePratos/$(d.refeicaoId)).data;
+      return minhaEscola(d) && d.escola == r.escola && d.data == r.data && d.turno == r.turno && d.refeicaoNome == r.nome;
+    }
+    function respostaAluno(d) {
+      let r = get(/databases/$(database)/documents/NomePratos/$(d.refeicaoId)).data;
+      return aluno() && mesmaRefeicao(d) && r.ativo == true && d.turno in meusTurnos()
+        && d.alunoId == request.auth.uid && d.alunoNome == perfil().nome && d.turma == perfil().turma
+        && d.dataResposta == request.time;
+    }
+    function podeLerResposta(id) {
+      return verified() && ((resource == null && aluno() && id.matches('.*_' + request.auth.uid))
+        || (minhaEscola(resource.data) && (admin() || resource.data.alunoId == request.auth.uid)));
+    }
+    match /usuarios/{uid} {
+      allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create: if signed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['uid','nome','matricula','turma','turnos','turno','escola','email','tipoConta','aceitouTermos','versaoTermos','dataConsentimento','dataCadastro'])
+        && request.resource.data.uid == uid && request.resource.data.tipoConta == 'aluno'
+        && escolaValida(request.resource.data.escola)
+        && texto(request.resource.data.nome, 3, 100) && request.resource.data.matricula is string && request.resource.data.matricula.matches('^[0-9]{5}$')
+        && texto(request.resource.data.turma, 1, 80) && request.resource.data.email == request.auth.token.email
+        && request.resource.data.turnos is list && request.resource.data.turnos.size() >= 1 && request.resource.data.turnos.size() <= 3
+        && request.resource.data.turnos.hasOnly(['manha','tarde','noite']) && request.resource.data.turnos.toSet().size() == request.resource.data.turnos.size()
+        && request.resource.data.turno == request.resource.data.turnos[0]
+        && request.resource.data.aceitouTermos == true && request.resource.data.versaoTermos in ['2026-10','2026-10-13']
+        && request.resource.data.dataConsentimento == request.time && request.resource.data.dataCadastro == request.time;
+      allow update: if verified() && request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['turma','email'])
+        && (resource.data.tipoConta == 'admin' || texto(request.resource.data.turma, 1, 80)) && request.resource.data.email == request.auth.token.email;
+      allow delete: if false;
+    }
+    function restricaoValida(uid, d) {
+      let p = getAfter(/databases/$(database)/documents/usuarios/$(uid)).data;
+      return p.tipoConta == 'aluno' && escolaValida(p.escola)
+        && d.keys().hasAll(['alunoId','escola','situacao','itens','outra','declarante','nomeResponsavel','autorizou','versaoAviso','atualizadoEm'])
+        && d.keys().hasOnly(['alunoId','escola','situacao','itens','outra','declarante','nomeResponsavel','autorizou','versaoAviso','atualizadoEm'])
+        && d.alunoId == uid && d.escola == p.escola
+        && d.situacao in ['nenhuma','informadas'] && d.itens is list && d.itens.size() <= 11
+        && d.itens.toSet().size() == d.itens.size()
+        && d.itens.hasOnly(['intolerancia_lactose','alergia_leite','alergia_ovo','alergia_amendoim','alergia_castanhas','alergia_soja','alergia_trigo','alergia_peixe','alergia_frutos_mar','restricao_gluten','outra'])
+        && ((d.situacao == 'nenhuma' && d.itens.size() == 0) || (d.situacao == 'informadas' && d.itens.size() > 0))
+        && (('outra' in d.itens && texto(d.outra,3,120)) || (!('outra' in d.itens) && d.outra == ''))
+        && ((d.declarante == 'titular_adulto' && d.nomeResponsavel == '') || (d.declarante == 'responsavel' && texto(d.nomeResponsavel,3,100)))
+        && d.autorizou == true && d.versaoAviso == '2026-10-13-restricoes-1' && d.atualizadoEm == request.time;
+    }
+    match /restricoesAlimentares/{uid} {
+      allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create, update: if signed() && request.auth.uid == uid && restricaoValida(uid,request.resource.data);
+      allow delete: if signed() && request.auth.uid == uid;
+    }
+    function solicitacaoPrivacidadeValida(uid, d) {
+      let p = get(/databases/$(database)/documents/usuarios/$(uid)).data;
+      return aluno() && request.auth.uid == uid && p.tipoConta == 'aluno'
+        && d.keys().hasOnly(['alunoId','alunoNome','email','escola','matricula','turma','tipo','status','mensagem','versaoPolitica','criadoEm','atualizadoEm'])
+        && d.alunoId == uid && d.alunoNome == p.nome && d.email == request.auth.token.email
+        && d.escola == p.escola && d.matricula == p.matricula && d.turma == p.turma
+        && d.tipo == 'exclusao_dados' && d.status == 'pendente'
+        && texto(d.mensagem,0,500) && d.versaoPolitica == '2026-10-13'
+        && d.atualizadoEm == request.time
+        && ((resource == null && d.criadoEm == request.time) || (resource != null && d.criadoEm == resource.data.criadoEm));
+    }
+    match /solicitacoesPrivacidade/{uid} {
+      allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create, update: if signed() && request.auth.uid == uid && solicitacaoPrivacidadeValida(uid, request.resource.data);
+      allow delete: if false;
+    }
+    match /pratos/{id} {
+      allow get: if admin() && (resource == null || minhaEscola(resource.data));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create, update: if admin() && minhaEscola(request.resource.data)
+        && id.matches('^' + chaveEscola(request.resource.data.escola) + '[_-].+')
+        && request.resource.data.keys().hasOnly(['nome','descricao','escola','revisao','atualizadoPorUid','atualizadoEm','criadoEm'])
+        && texto(request.resource.data.nome,3,100) && texto(request.resource.data.descricao,0,300)
+        && request.resource.data.atualizadoPorUid == request.auth.uid && request.resource.data.atualizadoEm == request.time
+        && ((resource == null && request.resource.data.revisao == 1 && request.resource.data.criadoEm == request.time)
+          || (minhaEscola(resource.data) && request.resource.data.revisao == resource.data.revisao + 1 && request.resource.data.criadoEm == resource.data.criadoEm));
+      allow delete: if false;
+    }
+    function menuValido(d, id) {
+      let a = getAfter(/databases/$(database)/documents/agenda/$(d.slotId)).data;
+      let p = get(/databases/$(database)/documents/pratos/$(d.pratoId)).data;
+      return admin() && minhaEscola(d)
+        && d.keys().hasOnly(['data','turno','pratoId','nome','descricao','escola','tipo','horarioLimite','horarioFim','ativo','slotId','revisao','criadoEm','atualizadoEm','atualizadoPorUid','limiteConfirmacao','inicioAvaliacao','limiteAvaliacao'])
+        && data(d.data) && turno(d.turno) && hora(d.horarioLimite) && hora(d.horarioFim) && d.horarioLimite < d.horarioFim
+        && d.nome == p.nome && d.descricao == p.descricao && p.escola == d.escola
+        && texto(d.tipo,1,80) && d.ativo is bool
+        && d.slotId == chaveEscola(d.escola) + '_' + d.data + '_' + d.turno
+        && a.escola == d.escola && a.data == d.data && a.turno == d.turno && a.refeicaoId == id && a.ativo == d.ativo
+        && d.limiteConfirmacao is timestamp && d.inicioAvaliacao is timestamp && d.limiteAvaliacao is timestamp
+        && d.limiteConfirmacao < d.inicioAvaliacao && d.inicioAvaliacao < d.limiteAvaliacao
+        && d.limiteAvaliacao - d.inicioAvaliacao < duration.value(5,'d')
+        && d.atualizadoPorUid == request.auth.uid && d.atualizadoEm == request.time;
+    }
+    match /NomePratos/{id} {
+      allow get: if (admin() && resource == null) || minhaEscola(resource.data);
+      allow list: if minhaEscola(resource.data);
+      allow create: if menuValido(request.resource.data,id) && request.resource.data.revisao == 1 && request.resource.data.criadoEm == request.time && request.resource.data.ativo == true;
+      allow update: if menuValido(request.resource.data,id) && minhaEscola(resource.data)
+        && request.resource.data.revisao == resource.data.revisao + 1
+        && request.resource.data.criadoEm == resource.data.criadoEm
+        && request.resource.data.data == resource.data.data && request.resource.data.turno == resource.data.turno
+        && request.resource.data.slotId == resource.data.slotId
+        && (resource.data.ativo == true || request.resource.data.ativo == false);
+      allow delete: if false;
+    }
+    match /agenda/{id} {
+      allow get: if admin() && (resource == null || minhaEscola(resource.data));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create, update: if admin() && minhaEscola(request.resource.data)
+        && request.resource.data.keys().hasOnly(['escola','data','turno','refeicaoId','ativo'])
+        && id == chaveEscola(request.resource.data.escola) + '_' + request.resource.data.data + '_' + request.resource.data.turno
+        && getAfter(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.slotId == id
+        && getAfter(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.ativo == request.resource.data.ativo
+        && getAfter(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.escola == request.resource.data.escola
+        && (resource == null || (minhaEscola(resource.data) && (resource.data.refeicaoId == request.resource.data.refeicaoId || resource.data.ativo == false)));
+      allow delete: if false;
+    }
+    match /confirmacoes/{id} {
+      allow get: if podeLerResposta(id);
+      allow list: if minhaEscola(resource.data) && (admin() || (aluno() && resource.data.alunoId == request.auth.uid));
+      allow create, update: if respostaAluno(request.resource.data)
+        && request.resource.data.keys().hasOnly(['alunoId','alunoNome','turma','turno','escola','refeicaoId','refeicaoNome','tipoRefeicao','data','vaiConsumir','resposta','dataResposta'])
+        && id == request.resource.data.refeicaoId + '_' + request.auth.uid
+        && request.resource.data.vaiConsumir is bool
+        && request.resource.data.resposta == (request.resource.data.vaiConsumir ? 'confirmado' : 'recusado')
+        && request.resource.data.tipoRefeicao == get(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.tipo
+        && request.time < get(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.limiteConfirmacao
+        && (resource == null || (resource.data.alunoId == request.auth.uid && resource.data.refeicaoId == request.resource.data.refeicaoId));
+      allow delete: if false;
+    }
+    match /feedbacks/{id} {
+      allow get: if podeLerResposta(id);
+      allow list: if minhaEscola(resource.data) && (admin() || (aluno() && resource.data.alunoId == request.auth.uid));
+      allow create, update: if respostaAluno(request.resource.data)
+        && request.resource.data.keys().hasOnly(['alunoId','alunoNome','turma','turno','escola','refeicaoId','refeicaoNome','data','nota','emoji','emojiValor','comentario','etiquetas','dataResposta','criadoEm'])
+        && ((resource == null && id == request.resource.data.refeicaoId + '_' + request.auth.uid) || (resource != null && resource.data.alunoId == request.auth.uid && resource.data.refeicaoId == request.resource.data.refeicaoId))
+        && request.resource.data.nota in [1,2,3,4,5]
+        && ((request.resource.data.nota == 5 && request.resource.data.emojiValor == 'amei' && request.resource.data.emoji == '😍')
+          || (request.resource.data.nota == 4 && request.resource.data.emojiValor == 'gostei' && request.resource.data.emoji == '🙂')
+          || (request.resource.data.nota == 3 && request.resource.data.emojiValor == 'ok' && request.resource.data.emoji == '😐')
+          || (request.resource.data.nota == 2 && request.resource.data.emojiValor == 'nao_gostei' && request.resource.data.emoji == '🙁')
+          || (request.resource.data.nota == 1 && request.resource.data.emojiValor == 'ruim' && request.resource.data.emoji == '😞'))
+        && texto(request.resource.data.comentario,0,240)
+        && request.resource.data.etiquetas is list && request.resource.data.etiquetas.size() <= 4
+        && request.resource.data.etiquetas.hasOnly(['Tinha bastante comida','Pouco tempero','Repetir esse prato','Estava frio'])
+        && request.resource.data.etiquetas.toSet().size() == request.resource.data.etiquetas.size()
+        && request.time >= get(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.inicioAvaliacao
+        && request.time <= get(/databases/$(database)/documents/NomePratos/$(request.resource.data.refeicaoId)).data.limiteAvaliacao
+        && ((resource == null && request.resource.data.criadoEm == request.time) || (resource != null && request.resource.data.criadoEm == resource.data.criadoEm));
+      allow delete: if false;
+    }
+    match /producao/{id} {
+      allow get: if admin() && (resource == null || minhaEscola(resource.data));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create, update: if admin() && mesmaRefeicao(request.resource.data)
+        && id == request.resource.data.refeicaoId
+        && request.resource.data.keys().hasOnly(['sobraTotalG','preparadoG','sobraLimpaG','sobraDescartadaG','restosG','servidos','observacao','schemaVersion','refeicaoId','refeicaoNome','data','turno','escola','revisao','criadoPorUid','criadoEm','atualizadoPorUid','atualizadoEm','exemplo'])
+        && request.resource.data.exemplo == false
+        && ((request.resource.data.schemaVersion == 1
+          && !request.resource.data.keys().hasAny(['sobraTotalG'])
+          && inteiro(request.resource.data.preparadoG,1000000000) && request.resource.data.preparadoG > 0
+          && inteiro(request.resource.data.sobraLimpaG,1000000000) && inteiro(request.resource.data.sobraDescartadaG,1000000000) && inteiro(request.resource.data.restosG,1000000000)
+          && request.resource.data.sobraLimpaG + request.resource.data.sobraDescartadaG + request.resource.data.restosG <= request.resource.data.preparadoG)
+          || (request.resource.data.schemaVersion == 2
+          && !request.resource.data.keys().hasAny(['preparadoG','sobraLimpaG','sobraDescartadaG','restosG'])
+          && inteiro(request.resource.data.sobraTotalG,1000000000)))
+        && inteiro(request.resource.data.servidos,1000000) && texto(request.resource.data.observacao,0,500)
+        && request.resource.data.atualizadoPorUid == request.auth.uid && request.resource.data.atualizadoEm == request.time
+        && get(/databases/$(database)/documents/NomePratos/$(id)).data.inicioAvaliacao <= request.time
+        && ((resource == null && get(/databases/$(database)/documents/NomePratos/$(id)).data.ativo == true && request.resource.data.revisao == 1 && request.resource.data.criadoPorUid == request.auth.uid && request.resource.data.criadoEm == request.time)
+          || (resource != null && minhaEscola(resource.data) && request.resource.data.revisao == resource.data.revisao + 1 && request.resource.data.criadoEm == resource.data.criadoEm && request.resource.data.criadoPorUid == resource.data.criadoPorUid));
+      allow delete: if false;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

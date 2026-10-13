@@ -1,0 +1,10 @@
+import { getApps, initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { firebaseConfig } from './firebaseOptions';
+import { opcoesFirebase, conectarAmbienteTeste } from './firebaseAmbiente';
+export const app = getApps().find((item) => item.name === '[DEFAULT]') || initializeApp(opcoesFirebase(firebaseConfig));
+export const database = getFirestore(app);
+export const auth = getAuth(app);
+auth.languageCode = 'pt-BR';
+conectarAmbienteTeste(app, auth, database);
