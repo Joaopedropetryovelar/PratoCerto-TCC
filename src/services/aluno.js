@@ -1,5 +1,5 @@
 import { auth, database, doc, getDoc, serverTimestamp, setDoc } from './backend';
-import { agoraAplicativo } from './demo';
+import { agoraAplicativo } from './relogio';
 import { podeConsumir, turnosDoPerfil } from '../domain/escolas';
 import { erroAvaliacao, limiteAvaliacao } from '../domain/calendario';
 import { dataLocal, dataValida, erroConfirmacao, idAvaliacao } from '../domain/refeicoes';

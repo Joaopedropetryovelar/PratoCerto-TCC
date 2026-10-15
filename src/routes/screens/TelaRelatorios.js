@@ -7,7 +7,7 @@ import Calendario from '../../components/Calendario';
 import ListaPaginada from '../../components/ListaPaginada';
 import CartaoRefeicao from '../../components/CartaoRefeicao';
 import { useColecaoEscola, usePerfil } from '../../hooks/useDados';
-import { agoraAplicativo, estaEmDemo } from '../../services/demo';
+import { agoraAplicativo } from '../../services/relogio';
 import { exportarProducao, exportarPdf } from '../../services/exportar';
 import { agruparPorDia, dataValida, filtrarPeriodo, kg, periodoDias, registroValido, resumirProducao, TURNOS } from '../../domain/producao';
 
@@ -41,7 +41,7 @@ export default function TelaRelatorios() {
     if (bloqueioExportacao.current || !validos.length || producao.erro || producao.carregando) return;
     bloqueioExportacao.current = true; setExportando(formato);
     try {
-      if (formato === 'pdf') await exportarPdf(validos, { ...periodo, escola: perfil.perfil.escola, turno, demo: estaEmDemo() });
+      if (formato === 'pdf') await exportarPdf(validos, { ...periodo, escola: perfil.perfil.escola, turno, demo: false });
       else await exportarProducao(validos, periodo.inicio, periodo.fim);
     } catch { Alert.alert('Falha na exportação', 'Não foi possível gerar ou compartilhar o relatório. Tente novamente.'); }
     finally { bloqueioExportacao.current = false; setExportando(null); }
@@ -60,7 +60,7 @@ export default function TelaRelatorios() {
       {resumo.ignorados ? <View style={[ui.card, ui.aviso]}><Text style={ui.texto}>{resumo.ignorados} registro(s) inválido(s) foram excluídos dos indicadores e da exportação. Confira em Produção.</Text></View> : null}
       <Filtros label="Gráfico" opcoes={[{id:'servidos',nome:'Refeições servidas por dia'},{id:'sobrasG',nome:'Sobras por dia'},{id:'descarteG',nome:'Descarte por dia'}]} valor={grafico} onChange={setGrafico} />
       <GraficoSerie registros={grafico === 'descarteG' ? validos.filter(r => r.schemaVersion !== 2) : validos} campo={grafico} titulo={grafico === 'servidos' ? 'Refeições servidas por dia' : grafico === 'sobrasG' ? 'Sobras por dia' : 'Descarte por dia'} unidade={grafico === 'servidos' ? 'ref.' : 'kg'} />
-      <View style={ui.card}><Text style={ui.secao}>Leve o relatório com você</Text><Text style={ui.texto}>O arquivo inclui todos os registros do período e turno selecionados, mesmo os que estão em outras páginas.</Text><Botao testID="exportar-pdf" onPress={() => exportar('pdf')} disabled={!validos.length || Boolean(exportando)} carregando={exportando === 'pdf'}>{Platform.OS === 'web' ? 'Baixar relatório PDF' : 'Compartilhar relatório PDF'}</Botao><Botao secundario testID="exportar" onPress={() => exportar('csv')} disabled={!validos.length || Boolean(exportando)} carregando={exportando === 'csv'}>{Platform.OS === 'web' ? 'Baixar dados CSV' : 'Compartilhar dados em texto'}</Botao>{estaEmDemo() ? <Text style={ui.pequeno}>O relatório desta demonstração contém dados fictícios.</Text> : null}</View>
+      <View style={ui.card}><Text style={ui.secao}>Leve o relatório com você</Text><Text style={ui.texto}>O arquivo inclui todos os registros do período e turno selecionados, mesmo os que estão em outras páginas.</Text><Botao testID="exportar-pdf" onPress={() => exportar('pdf')} disabled={!validos.length || Boolean(exportando)} carregando={exportando === 'pdf'}>{Platform.OS === 'web' ? 'Baixar relatório PDF' : 'Compartilhar relatório PDF'}</Botao><Botao secundario testID="exportar" onPress={() => exportar('csv')} disabled={!validos.length || Boolean(exportando)} carregando={exportando === 'csv'}>{Platform.OS === 'web' ? 'Baixar dados CSV' : 'Compartilhar arquivo CSV'}</Botao></View>
       <View style={ui.card}><Text style={ui.secao}>Registros do período</Text><Text style={ui.texto}>{validos.length} registros · {agruparPorDia(validos).length} dias. Consulte cinco dias por página.</Text><Botao secundario testID="ver-registros" onPress={() => setDetalhes(!detalhes)}>{detalhes ? 'Fechar registros' : 'Consultar registros'}</Botao></View>
       {detalhes ? <><Campo label="Buscar nos registros" testID="buscar-registros" value={busca} onChangeText={setBusca} placeholder="Nome do prato ou observação" ajuda="A busca afeta esta lista; os indicadores e arquivos mantêm o período completo." />{!dias.length ? <View style={ui.card}><Text style={ui.secao}>Nenhum registro encontrado</Text><Text style={ui.texto}>Altere a busca ou selecione outro período.</Text></View> : <ListaPaginada prefixo="registros" itens={dias} chave={`${periodo.inicio}|${periodo.fim}|${turno}|${busca}`} tamanho={5} renderItem={dia => <DiaResultado key={dia.data} dia={dia} registros={encontrados.filter(r => r.data === dia.data)} />} />}</> : null}
       <Text style={ui.pequeno}>Sobra não significa descarte. A taxa de descarte usa sobra descartada e restos dos pratos em relação ao alimento preparado, somente em registros detalhados. Dias sem registro não entram como zero.</Text>

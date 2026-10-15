@@ -62,7 +62,7 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
   const elegiveis = new Map(alunos.filter((aluno) => aluno.tipoConta === 'aluno' && (turno === 'todos' || turnosDoPerfil(aluno).includes(turno))).map((aluno) => [aluno.uid || aluno.id, aluno]));
   const porAluno = new Map(registros.map((item) => [item.alunoId, item]));
   const frequencias = new Map(OPCOES_RESTRICOES.map((item) => [item.id, 0]));
-  const impacto = { porcoesAtencao: 0, semLeiteOuLactose: 0, semGlutenOuTrigo: 0, alergiasCriticas: 0, outrasRestricoes: 0 };
+  const impacto = { porcoesAtencao: 0, semLeiteOuLactose: 0, semGlutenOuTrigo: 0, alergiasDeclaradas: 0, outrasRestricoes: 0 };
   let comRestricoes = 0, semRestricoes = 0, naoInformado = 0;
   for (const [uid, aluno] of elegiveis) {
     const r = porAluno.get(uid);
@@ -75,7 +75,7 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
     const itens = new Set(r.itens);
     if (['intolerancia_lactose', 'alergia_leite'].some((id) => itens.has(id))) impacto.semLeiteOuLactose += 1;
     if (['restricao_gluten', 'alergia_trigo'].some((id) => itens.has(id))) impacto.semGlutenOuTrigo += 1;
-    if (['alergia_ovo', 'alergia_amendoim', 'alergia_castanhas', 'alergia_soja', 'alergia_peixe', 'alergia_frutos_mar'].some((id) => itens.has(id))) impacto.alergiasCriticas += 1;
+    if ([...itens].some((id) => id.startsWith('alergia_'))) impacto.alergiasDeclaradas += 1;
     if (itens.has('outra')) impacto.outrasRestricoes += 1;
     itens.forEach((id) => frequencias.set(id, frequencias.get(id) + 1));
   }
@@ -84,4 +84,20 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
   return { total, comRestricoes, semRestricoes, naoInformado, informados: comRestricoes + semRestricoes,
     impacto,
     grupos: OPCOES_RESTRICOES.map((item) => ({ ...item, quantidade: frequencias.get(item.id), percentual: total ? frequencias.get(item.id) / total * 100 : 0 })) };
+}
+
+export function planejarRestricoesDaRefeicao(refeicao,alunos,registros,confirmacoes){
+  if(!refeicao?.id||!refeicao.escola)return {...estatisticasRestricoes([],[]),recusados:0,respostas:0,semCadastro:0};
+  const respostas=new Map();
+  const tempo=r=>Number(r.dataResposta?.seconds||0)*1000+Number(r.dataResposta?.nanoseconds||0)/1000000;
+  for(const r of confirmacoes){
+    if(r.refeicaoId!==refeicao.id||r.escola!==refeicao.escola||r.data!==refeicao.data||r.turno!==refeicao.turno||!r.alunoId||typeof r.vaiConsumir!=='boolean')continue;
+    const atual=respostas.get(r.alunoId);
+    if(!atual||tempo(r)>tempo(atual)||(tempo(r)===tempo(atual)&&r.id===`${refeicao.id}_${r.alunoId}`))respostas.set(r.alunoId,r);
+  }
+  const perfis=new Map(alunos.filter(a=>a.tipoConta==='aluno'&&a.escola===refeicao.escola&&turnosDoPerfil(a).includes(refeicao.turno)).map(a=>[a.uid||a.id,a]));
+  const confirmados=[...respostas.values()].filter(r=>r.vaiConsumir);
+  const elegiveis=confirmados.map(r=>perfis.get(r.alunoId)||{uid:r.alunoId,tipoConta:'aluno',escola:refeicao.escola,turnos:[refeicao.turno]});
+  const resumo=estatisticasRestricoes(elegiveis,registros.filter(r=>perfis.has(r.alunoId)),refeicao.turno);
+  return {...resumo,recusados:respostas.size-confirmados.length,respostas:respostas.size,semCadastro:confirmados.filter(r=>!perfis.has(r.alunoId)).length};
 }

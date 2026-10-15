@@ -15,7 +15,7 @@ export function validarCadastro(dados) {
   const erros = {};
   if (String(dados.nome || '').trim().length < 3 || String(dados.nome).trim().length > 100) erros.nome = 'Informe seu nome, de 3 a 100 caracteres.';
   if (!/^\d{5}$/.test(String(dados.matricula || '').trim())) erros.matricula = 'Informe uma matrícula com exatamente 5 dígitos.';
-  if (!String(dados.turma || '').trim() || String(dados.turma).trim().length > 80) erros.turma = 'Informe sua turma.';
+  if (!String(dados.turma || '').trim() || String(dados.turma).trim().length > 80 || typeof dados.turmaId !== 'string' || !dados.turmaId || dados.turmaId.includes('/') || dados.turmaId.length > 500) erros.turma = 'Selecione uma turma da lista da escola.';
   if (!escolaValida(dados.escola)) erros.escola = 'Selecione sua escola.';
   if (!Array.isArray(dados.turnos) || !dados.turnos.length || dados.turnos.length > 3 || turnosDoPerfil(dados).length !== dados.turnos.length) erros.turnos = 'Selecione um ou mais turnos, sem repetir.';
   if (!emailValido(dados.email)) erros.email = 'Informe um e-mail válido que você consiga acessar.';

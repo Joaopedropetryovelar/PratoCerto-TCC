@@ -2,7 +2,7 @@ import { auth, database, doc, getDoc, executarTransacao, serverTimestamp, timest
 import { chaveEscola } from '../domain/escolas';
 import { dataValida, horarioValido, dataDaEscola, instanteEscola } from '../domain/refeicoes';
 import { limiteAvaliacao } from '../domain/calendario';
-import { agoraAplicativo } from './demo';
+import { agoraAplicativo } from './relogio';
 const turnos = ['manha', 'tarde', 'noite'];
 async function equipe() {
   const usuario = auth.currentUser; if (!usuario) throw new Error('Entre novamente.');
@@ -40,6 +40,7 @@ export async function salvarRefeicao({ data, turno, pratoId, horarioLimite, hora
     if (!prato.exists() || prato.data().escola !== perfil.escola) throw new Error('Escolha um prato do catálogo da sua escola.');
     if (agenda.exists() && agenda.data().ativo === true && agenda.data().refeicaoId !== refeicaoRef.id) throw new Error('Já existe uma refeição ativa neste dia e turno. Edite ou arquive a existente.');
     if (existente.exists() && (existente.data().escola !== perfil.escola || existente.data().revisao !== revisaoEsperada || existente.data().data !== data || existente.data().turno !== turno || existente.data().ativo === false)) throw new Error('A refeição mudou. Recarregue o cardápio antes de editar.');
+    if (existente.exists() && agoraAplicativo() >= instanteEscola(existente.data().data, existente.data().horarioLimite)) throw new Error('A edição encerrou com o prazo de confirmação desta refeição.');
     const item = { data, turno, pratoId, nome: prato.data().nome, descricao: prato.data().descricao || '', escola: perfil.escola, tipo: `Refeição da ${turno === 'manha' ? 'manhã' : turno}`, horarioLimite, horarioFim, ativo: true, slotId: slot, revisao: revisaoEsperada + 1, criadoEm: existente.exists() ? existente.data().criadoEm : serverTimestamp(), atualizadoEm: serverTimestamp(), atualizadoPorUid: perfil.uid };
     item.limiteConfirmacao = timestampData(instanteEscola(data, horarioLimite));
     item.inicioAvaliacao = timestampData(instanteEscola(data, horarioFim));

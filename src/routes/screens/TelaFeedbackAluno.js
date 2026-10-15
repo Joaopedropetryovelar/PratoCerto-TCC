@@ -5,7 +5,7 @@ import { Botao, Filtros, Campo, Carregando, Falha, Pagina, ui } from '../../comp
 import { useDocumento } from '../../hooks/useDados';
 import { useRefeicaoAluno } from '../../hooks/useRefeicaoAluno';
 import { auth } from '../../services/backend';
-import { agoraAplicativo } from '../../services/demo';
+import { agoraAplicativo } from '../../services/relogio';
 import { podeConsumir } from '../../domain/escolas';
 import { erroAvaliacao } from '../../domain/calendario';
 import { useAgora } from '../../hooks/useAgora';

@@ -1,3 +1,7 @@
+import TelaRefeicaoDiaAdmin from './routes/screens/TelaRefeicaoDiaAdmin';
+import TelaMatriculasAdmin from './routes/screens/TelaMatriculasAdmin';
+import TelaPrivacidadeAdmin from './routes/screens/TelaPrivacidadeAdmin';
+import TelaTurmasAdmin from './routes/screens/TelaTurmasAdmin';
 import TelaRestricoesAdmin from './routes/screens/TelaRestricoesAdmin';
 import Icone from './components/Icone';
 import React from "react";
@@ -36,11 +40,7 @@ import ConsentimentoNavigator from "./routes/screens/ConsentimentoNavigator";
 
 import TelaProducao from "./routes/screens/TelaProducao";
 import TelaRelatorios from "./routes/screens/TelaRelatorios";
-import TelaDemonstracao from "./routes/screens/TelaDemonstracao";
-import { ContextoAviso } from "./components/Interface";
-import { estaEmDemo } from "./services/demo";
 import AreaProtegida from "./components/AreaProtegida";
-import AvisoDemonstracao from "./components/AvisoDemonstracao";
 
 const NavegadorPrincipal =
   createNativeStackNavigator();
@@ -50,8 +50,7 @@ const NavegadorAbas =
 
 function MenuAluno({ navigation }) {
   return (
-    <AreaProtegida tipoConta="aluno" navigation={navigation}><ContextoAviso.Provider value={estaEmDemo()}><View style={{ flex: 1 }}>
-    <AvisoDemonstracao navigation={navigation} />
+    <AreaProtegida tipoConta="aluno" navigation={navigation}><View style={{ flex: 1 }}>
     <NavegadorAbas.Navigator
       initialRouteName="Cardapio"
       screenOptions={opcoesMenuInferior}
@@ -112,14 +111,13 @@ function MenuAluno({ navigation }) {
         }}
       />
     </NavegadorAbas.Navigator>
-    </View></ContextoAviso.Provider></AreaProtegida>
+    </View></AreaProtegida>
   );
 }
 
 function MenuEquipe({ navigation }) {
   return (
-    <AreaProtegida tipoConta="admin" navigation={navigation}><ContextoAviso.Provider value={estaEmDemo()}><View style={{ flex: 1 }}>
-    <AvisoDemonstracao navigation={navigation} />
+    <AreaProtegida tipoConta="admin" navigation={navigation}><View style={{ flex: 1 }}>
     <NavegadorAbas.Navigator
       initialRouteName="DashboardAdmin"
       screenOptions={opcoesMenuInferior}
@@ -169,7 +167,7 @@ function MenuEquipe({ navigation }) {
         }}
       />
     </NavegadorAbas.Navigator>
-    </View></ContextoAviso.Provider></AreaProtegida>
+    </View></AreaProtegida>
   );
 }
 
@@ -186,10 +184,13 @@ export default function RotasAplicativo() {
         component={TelaInicial}
       />
 
+      <NavegadorPrincipal.Screen name="RefeicaoDiaAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRefeicaoDiaAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
+      <NavegadorPrincipal.Screen name="MatriculasAdmin" component={TelaMatriculasAdmin} />
+      <NavegadorPrincipal.Screen name="PrivacidadeAdmin" component={TelaPrivacidadeAdmin} />
+      <NavegadorPrincipal.Screen name="TurmasAdmin" component={TelaTurmasAdmin} />
       <NavegadorPrincipal.Screen name="RestricoesAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRestricoesAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
       <NavegadorPrincipal.Screen name="EsqueciSenha" component={TelaEsqueciSenha} />
       <NavegadorPrincipal.Screen name="VerificarEmail" component={TelaVerificarEmail} />
-      <NavegadorPrincipal.Screen name="Demonstracao" component={TelaDemonstracao} />
 
       <NavegadorPrincipal.Screen
         name="Login"

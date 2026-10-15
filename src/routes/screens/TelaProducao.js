@@ -7,7 +7,7 @@ import Calendario from '../../components/Calendario';
 import { Botao, Campo, Carregando, Falha, Filtros, Pagina, ui } from '../../components/Interface';
 import { useColecaoEscola, usePerfil } from '../../hooks/useDados';
 import { salvarProducao } from '../../services/producao';
-import { agoraAplicativo } from '../../services/demo';
+import { agoraAplicativo } from '../../services/relogio';
 import { dataDaEscola } from '../../domain/refeicoes';
 import { dataValida, formularioDoRegistro, kg, registroValido, resumirProducao, TURNOS, validarProducao } from '../../domain/producao';
 

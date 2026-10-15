@@ -1,11 +1,11 @@
-import { Platform, Share } from 'react-native';
+import { Platform } from 'react-native';
 import { gerarCsv } from '../domain/producao';
 
 export async function exportarProducao(registros, inicio, fim) {
   const texto = gerarCsv(registros);
   const nome = `PratoCerto_${inicio}_${fim}.csv`;
   if (Platform.OS !== 'web') {
-    return Share.share({ title: nome, message: texto });
+    return compartilharArquivo(nome, texto, 'text/csv', 'public.comma-separated-values-text');
   }
   const blob = new Blob([texto], { type: 'text/csv;charset=utf-8' });
   const endereco = URL.createObjectURL(blob);
@@ -31,12 +31,21 @@ export async function exportarPdf(registros, opcoes) {
     try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(endereco), 1000); }
     return;
   }
+  return compartilharArquivo(nome, bytes, 'application/pdf', 'com.adobe.pdf');
+}
+
+async function compartilharArquivo(nome, conteudo, mimeType, UTI) {
   const { File, Paths } = require('expo-file-system');
   const Sharing = require('expo-sharing');
   if (!(await Sharing.isAvailableAsync())) throw new Error('Compartilhamento indisponível neste aparelho.');
   const arquivo = new File(Paths.cache, `${Date.now()}_${nome}`);
-  await arquivo.create({ overwrite: true });
-  await arquivo.write(bytes);
-  await Sharing.shareAsync(arquivo.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Relatório Prato Certo' });
-  return arquivo.uri;
+  try {
+    arquivo.create({ overwrite: true });
+    arquivo.write(conteudo);
+    await Sharing.shareAsync(arquivo.uri, { mimeType, UTI, dialogTitle: 'Relatório Prato Certo' });
+    return arquivo.uri;
+  } catch (erro) {
+    try { if (arquivo.exists) arquivo.delete(); } catch {}
+    throw erro;
+  }
 }

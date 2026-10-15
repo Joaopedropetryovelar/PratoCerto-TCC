@@ -1,12 +1,10 @@
 import { VERSAO_APP } from '../../domain/versao';
-import { ambienteTesteLocal, CONTA_EQUIPE_TESTE } from '../../../firebaseAmbiente';
 import React, { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Botao, Campo, Filtros, Pagina, ui } from '../../components/Interface';
 import { entrarConta } from '../../services/contas';
 import { mensagemAuth } from '../../domain/contas';
 import { ESCOLAS } from '../../domain/escolas';
-import { CONTAS_PRONTAS } from '../../services/demo';
 export default function TelaLogin({ navigation, route }) {
   const [email, setEmail] = useState(''); const [senha, setSenha] = useState(''); const [escola, setEscola] = useState('');
   const [mostrar, setMostrar] = useState(false); const [erro, setErro] = useState(null); const [ocupado, setOcupado] = useState(false); const bloqueio = useRef(false);
@@ -21,10 +19,7 @@ export default function TelaLogin({ navigation, route }) {
     } catch (falha) { setErro(mensagemAuth(falha)); }
     finally { bloqueio.current = false; setOcupado(false); }
   }
-  function preencherConta(conta) { setEmail(conta.email); setSenha(conta.senha); setEscola(conta.escola); }
   return <Pagina estreita titulo="Bem-vindo de volta" subtitulo={route?.params?.cadastrarAdmin ? 'Entre com uma conta de equipe já autorizada.' : 'Entre com sua conta e escolha a escola vinculada a ela.'}>
-    <View style={ui.card}><Text style={ui.secao}>Conta ADM pronta</Text><Text style={ui.texto}>Use para testar cardápio, painel da equipe, relatórios e restrições alimentares sem configurar Firebase real.</Text><Text style={ui.pequeno}>E-mail: {CONTAS_PRONTAS.admin.email} · Senha: {CONTAS_PRONTAS.admin.senha} · Escola: {CONTAS_PRONTAS.admin.escola}</Text><Botao testID="preencher-adm-pronto" secundario disabled={ocupado} onPress={() => preencherConta(CONTAS_PRONTAS.admin)}>Preencher ADM pronto</Botao></View>
-    {ambienteTesteLocal ? <View style={[ui.card, ui.aviso]}><Text style={ui.secao}>Contas de teste local</Text><Text style={ui.texto}>Este ambiente usa dados fictícios. As contas de equipe e aluno já estão prontas.</Text><Botao testID="preencher-equipe-teste" secundario disabled={ocupado} onPress={() => { setEmail(CONTA_EQUIPE_TESTE.email); setSenha(CONTA_EQUIPE_TESTE.senha); setEscola(CONTA_EQUIPE_TESTE.escola); }}>Preencher equipe de teste</Botao></View> : null}
     <View style={ui.card}><Campo label="E-mail" testID="email" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" editable={!ocupado} /><Filtros vertical label="Escola" opcoes={ESCOLAS.map((s) => ({ id: s, nome: s }))} valor={escola} onChange={setEscola} /><Campo label="Senha" testID="senha" value={senha} onChangeText={setSenha} secureTextEntry={!mostrar} autoCapitalize="none" autoCorrect={false} editable={!ocupado} /><Botao secundario onPress={() => setMostrar(!mostrar)}>{mostrar ? 'Ocultar senha' : 'Mostrar senha'}</Botao></View>
     {erro ? <Text accessibilityRole="alert" style={ui.erro}>{erro}</Text> : null}
     <Botao testID="entrar-conta" carregando={ocupado} onPress={entrar}>Entrar</Botao>

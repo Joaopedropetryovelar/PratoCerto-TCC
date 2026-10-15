@@ -73,6 +73,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "escola",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "matricula",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

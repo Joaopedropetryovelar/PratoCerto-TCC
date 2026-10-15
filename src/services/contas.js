@@ -1,12 +1,11 @@
+import { vincularMatricula } from './matriculas';
+import { conferirTurma } from './turmas';
 import { prepararRestricoes } from '../domain/restricoes';
-import { auth, database, doc, getDoc, setDoc, escreverLote, updateDoc, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, deleteUser, serverTimestamp, sendEmailVerification, sendPasswordResetEmail, reload, getIdToken, reautenticar, verifyBeforeUpdateEmail, updatePassword } from './backend';
+import { auth, database, doc, getDoc, getDocFromServer, setDoc, escreverLote, updateDoc, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile, deleteUser, serverTimestamp, sendEmailVerification, sendPasswordResetEmail, reload, getIdToken, reautenticar, verifyBeforeUpdateEmail, updatePassword } from './backend';
 import { emailNormalizado, emailValido, erroSenha, validarCadastro, VERSAO_TERMOS } from '../domain/contas';
 import { escolaValida } from '../domain/escolas';
-import { entrarContaPronta, estaEmDemo } from './demo';
 export async function entrarConta({ email, senha, escola, apenasAdmin = false }) {
   if (!emailValido(email) || !senha || !escolaValida(escola)) throw new Error('Confira o e-mail, a senha e a escola.');
-  const pronta = await entrarContaPronta({ email, senha, escola, apenasAdmin });
-  if (pronta) return pronta;
   const { user } = await signInWithEmailAndPassword(auth, emailNormalizado(email), senha);
   try {
     await reload(user);
@@ -23,21 +22,30 @@ export async function entrarConta({ email, senha, escola, apenasAdmin = false })
 export async function cadastrarAluno(dados) {
   const erros = validarCadastro(dados);
   if (Object.keys(erros).length) throw new Error(Object.values(erros)[0]);
+  const selecionada = await conferirTurma(dados.escola, dados.turmaId);
   let usuario, perfilCriado = false;
   try {
     usuario = (await createUserWithEmailAndPassword(auth, emailNormalizado(dados.email), dados.senha)).user;
     await updateProfile(usuario, { displayName: dados.nome.trim() });
-    const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), turma: dados.turma.trim(), turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
+    const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), ...selecionada, turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
     const restricoes = prepararRestricoes(dados.restricoes, usuario.uid, dados.escola, serverTimestamp());
-    if (restricoes) await escreverLote([{ ref: doc(database, 'usuarios', usuario.uid), dados: perfil }, { ref: doc(database, 'restricoesAlimentares', usuario.uid), dados: restricoes }]);
-    else await setDoc(doc(database, 'usuarios', usuario.uid), perfil);
+    await vincularMatricula(perfil,restricoes);
     perfilCriado = true;
   } catch (erro) {
     if (usuario && !perfilCriado) {
-      try { await deleteUser(usuario); }
-      catch { await signOut(auth); throw new Error('O cadastro ficou incompleto e não foi possível desfazer a conta. Procure a equipe antes de tentar novamente.'); }
+      let salvo;
+      try { salvo=await getDocFromServer(doc(database,'usuarios',usuario.uid)); }
+      catch { throw new Error('Não foi possível confirmar se o cadastro foi concluído. Sua conta foi preservada. Confira a conexão e procure a equipe antes de criar outra conta.'); }
+      if(salvo.exists()) {
+        const perfil=salvo.data();
+        if(perfil.uid!==usuario.uid||perfil.escola!==dados.escola||perfil.matricula!==String(dados.matricula).trim()||perfil.email!==emailNormalizado(dados.email))throw new Error('Sua conta precisa ser conferida pela equipe. Nenhum cadastro existente foi removido.');
+        perfilCriado=true;
+      } else {
+        try { await deleteUser(usuario); }
+        catch { await signOut(auth); throw new Error('O cadastro ficou incompleto e não foi possível desfazer a conta. Procure a equipe antes de tentar novamente.'); }
+      }
     }
-    throw erro;
+    if(!perfilCriado)throw erro;
   }
   try { await sendEmailVerification(usuario); return { emailEnviado: true }; }
   catch { return { emailEnviado: false }; }
@@ -63,7 +71,6 @@ export async function recuperarSenha(email) {
   catch (erro) { if (erro.code !== 'auth/user-not-found') throw erro; }
 }
 async function usuarioSeguro(senha) {
-  if (estaEmDemo()) throw new Error('Alterações de conta real ficam disponíveis fora da demonstração.');
   const usuario = auth.currentUser;
   if (!usuario?.email || !senha) throw new Error('Informe sua senha atual.');
   await reautenticar(usuario, senha);
@@ -83,12 +90,11 @@ export async function alterarSenha(senhaAtual, novaSenha) {
   const usuario = await usuarioSeguro(senhaAtual);
   await updatePassword(usuario, novaSenha);
 }
-export async function alterarTurma(turma) {
-  const texto = String(turma || '').trim();
-  if (!texto || texto.length > 80) throw new Error('Informe uma turma de até 80 caracteres.');
+export async function alterarTurma(turmaId) {
   const uid = auth.currentUser?.uid;
   if (!uid) throw new Error('Entre novamente.');
   const perfil = await getDoc(doc(database, 'usuarios', uid));
   if (!perfil.exists() || perfil.data().tipoConta !== 'aluno') throw new Error('Perfil de aluno indisponível.');
-  await updateDoc(doc(database, 'usuarios', uid), { turma: texto });
+  const selecionada = await conferirTurma(perfil.data().escola, turmaId);
+  await updateDoc(doc(database, 'usuarios', uid), selecionada);
 }

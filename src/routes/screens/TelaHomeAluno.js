@@ -1,3 +1,4 @@
+import RefeicaoDiaAluno from '../../components/RefeicaoDiaAluno';
 import CartaoRefeicao from '../../components/CartaoRefeicao';
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
@@ -12,13 +13,19 @@ export default function TelaHomeAluno({ navigation }) {
   // Include Friday schedules when deciding whether the school week has finished.
   const candidatos=useColecaoEscola('NomePratos',perfil.perfil,[['data','>=',hoje],['data','<=',new Date(agora.getTime()+14*86400000).toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'})]]);
   const dias=semanaVisivel(agora,candidatos.dados);const datasAtuais=dias.map(d=>d.id);const chave=datasAtuais.join(',');
-  const [data,setData]=useState(null);const [turno,setTurno]=useState('todos');
+  const [data,setData]=useState(null);const [turno,setTurno]=useState('todos');const [semanaAberta,setSemanaAberta]=useState(false);
   const selecionada=data && datasAtuais.includes(data) && data>=hoje ? data : dias.find(d=>d.id>=hoje)?.id||dias[0].id;
   useEffect(()=>{setData(dias.find(d=>d.id>=hoje)?.id||dias[0].id);},[chave,hoje]);
   const pratos=candidatos.dados.filter(p=>p.ativo!==false&&p.data===selecionada&&(turno==='todos'||p.turno===turno)).sort((a,b)=>['manha','tarde','noite'].indexOf(a.turno)-['manha','tarde','noite'].indexOf(b.turno));
+  const deHoje=candidatos.dados.filter(p=>p.ativo!==false&&p.data===hoje&&podeConsumir(p,perfil.perfil)).sort((a,b)=>['manha','tarde','noite'].indexOf(a.turno)-['manha','tarde','noite'].indexOf(b.turno));
   const meus=turnosDoPerfil(perfil.perfil).map(id=>TURNOS_ALUNO.find(t=>t.id===id)?.nome).join(' e ');
-  return <Pagina titulo={`Olá, ${perfil.perfil?.nome?.split(' ')[0]||'aluno'}`} subtitulo={`${perfil.perfil?.escola||'Prato Certo'} · Cardápio da semana`}>
+  return <Pagina titulo={`Olá, ${perfil.perfil?.nome?.split(' ')[0]||'aluno'}`} subtitulo={`${perfil.perfil?.escola||'Prato Certo'} · Refeição do dia`}>
     {perfil.carregando||candidatos.carregando?<Carregando/>:perfil.erro||candidatos.erro?<Falha mensagem={perfil.erro||candidatos.erro} tentarNovamente={()=>{perfil.tentarNovamente();candidatos.tentarNovamente();}}/>:<>
+      <Text style={ui.secao}>Refeição de hoje</Text>
+      <Text style={ui.pequeno}>Seus turnos: {meus||'procure a equipe para regularizar'}. Confirme abaixo se vai comer.</Text>
+      {deHoje.length?deHoje.map(refeicao=><RefeicaoDiaAluno key={refeicao.id} refeicao={refeicao} perfil={perfil.perfil} agora={agora} navigation={navigation}/>):<View testID="sem-refeicao-hoje" style={ui.card}><Text style={ui.secao}>Nenhuma refeição publicada para seus turnos hoje</Text><Text style={ui.texto}>Quando a equipe publicar o cardápio de hoje, ele aparecerá aqui. Você também pode consultar os próximos dias.</Text></View>}
+      <Botao testID="ver-semana" secundario onPress={()=>setSemanaAberta(!semanaAberta)}>{semanaAberta?'Fechar cardápio da semana':'Consultar cardápio da semana'}</Botao>
+      {semanaAberta?<>
       <Filtros label="Dia da refeição" opcoes={dias.map(d=>({id:d.id,nome:`${d.nome} ${d.numero}`,disabled:d.id<hoje}))} valor={selecionada} onChange={setData}/>
       <Filtros label="Ver turnos" opcoes={[{id:'todos',nome:'Todos'},...TURNOS_ALUNO]} valor={turno} onChange={setTurno}/>
       <Text style={ui.pequeno}>Seus turnos: {meus||'procure a equipe para regularizar'}. Você pode consultar todos os turnos; as respostas ficam disponíveis para os seus.</Text>
@@ -31,6 +38,7 @@ export default function TelaHomeAluno({ navigation }) {
         </CartaoRefeicao>;
       })}
       <Text style={ui.pequeno}>Após a última refeição da sexta-feira, o cardápio avança para a próxima semana. Seu histórico fica preservado.</Text>
+      </>:null}
     </>}
   </Pagina>;
 }

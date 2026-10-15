@@ -15,13 +15,71 @@ service cloud.firestore {
     function hora(v) { return v is string && v.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'); }
     function inteiro(v, maximo) { return v is int && v >= 0 && v <= maximo; }
     function chaveEscola(e) { return e == 'Satc' ? 'satc' : 'ags'; }
+    // Horário civil das escolas em UTC-03. O relógio decisivo é request.time.
+    function dois(n) { return (n < 10 ? '0' : '') + string(n); }
+    function dataCivil(t) { return string(t.year()) + '-' + dois(t.month()) + '-' + dois(t.day()); }
+    function horaCivil(t) { return dois(t.hours()) + ':' + dois(t.minutes()); }
+    function prazosCoerentes(d) {
+      let fim = d.inicioAvaliacao - duration.value(3, 'h');
+      let limite = d.limiteConfirmacao - duration.value(3, 'h');
+      let encerramento = fim.date() + duration.value(fim.dayOfWeek() == 5 ? 4 : 2, 'd') + duration.value(3, 'h') - duration.value(1, 'ms');
+      return d.limiteConfirmacao is timestamp && d.inicioAvaliacao is timestamp && d.limiteAvaliacao is timestamp
+        && fim.dayOfWeek() in [1,2,3,4,5]
+        && d.data == dataCivil(fim) && d.data == dataCivil(limite)
+        && d.horarioLimite == horaCivil(limite) && d.horarioFim == horaCivil(fim)
+        && limite == limite.date() + duration.value(limite.hours(), 'h') + duration.value(limite.minutes(), 'm')
+        && fim == fim.date() + duration.value(fim.hours(), 'h') + duration.value(fim.minutes(), 'm')
+        && d.limiteConfirmacao < d.inicioAvaliacao && d.limiteAvaliacao == encerramento;
+    }
+    function turmaEscolhida(d) {
+      let t = get(/databases/$(database)/documents/turmas/$(d.turmaId)).data;
+      return t.ativa == true && t.escola == d.escola && t.nome == d.turma;
+    }
+    function matriculaVinculada(d) {
+      let m = getAfter(/databases/$(database)/documents/matriculasAutorizadas/$(chaveEscola(d.escola) + '_' + d.matricula)).data;
+      return m.escola == d.escola && m.matricula == d.matricula && m.ativa == true
+        && (m.email == '' || m.email == request.auth.token.email) && m.alunoId == request.auth.uid;
+    }
+    function cadastroDaMatricula(d) {
+      let p = getAfter(/databases/$(database)/documents/usuarios/$(d.alunoId)).data;
+      return p.tipoConta == 'aluno' && p.uid == d.alunoId && p.escola == d.escola && p.matricula == d.matricula;
+    }
+    function autorizacaoValida(d,id) {
+      return d.keys().hasAll(['escola','matricula','email','ativa','alunoId','vinculadoEm','revisao','criadoEm','atualizadoEm','atualizadoPorUid'])
+        && d.keys().hasOnly(['escola','matricula','email','ativa','alunoId','vinculadoEm','revisao','criadoEm','atualizadoEm','atualizadoPorUid'])
+        && escolaValida(d.escola) && d.matricula is string && d.matricula.matches('^[0-9]{5}$')
+        && id == chaveEscola(d.escola) + '_' + d.matricula
+        && (d.email == '' || (texto(d.email,3,254) && d.email == d.email.lower() && d.email.matches('^[^ @]+@[^ @]+[.][^ @]+$')))
+        && d.ativa is bool && d.alunoId is string && d.revisao is int && d.revisao > 0
+        && ((d.alunoId == '' && d.vinculadoEm == null) || (texto(d.alunoId,1,128) && d.vinculadoEm is timestamp))
+        && d.atualizadoEm == request.time && d.atualizadoPorUid == request.auth.uid;
+    }
+    match /matriculasAutorizadas/{id} {
+      allow get: if (signed() && resource != null && (resource.data.alunoId == request.auth.uid || (resource.data.alunoId == '' && (resource.data.email == '' || resource.data.email == request.auth.token.email))))
+        || (admin() && (resource == null || minhaEscola(resource.data)));
+      allow list: if admin() && minhaEscola(resource.data);
+      allow create: if admin() && minhaEscola(request.resource.data) && autorizacaoValida(request.resource.data,id)
+        && request.resource.data.revisao == 1 && request.resource.data.criadoEm == request.time
+        && (request.resource.data.alunoId == '' || (cadastroDaMatricula(request.resource.data) && request.resource.data.vinculadoEm == request.time));
+      allow update: if autorizacaoValida(request.resource.data,id)
+        && request.resource.data.escola == resource.data.escola && request.resource.data.matricula == resource.data.matricula
+        && request.resource.data.criadoEm == resource.data.criadoEm && request.resource.data.revisao == resource.data.revisao + 1
+        && ((signed() && resource.data.alunoId == '' && resource.data.ativa == true
+            && (resource.data.email == '' || resource.data.email == request.auth.token.email) && request.resource.data.alunoId == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['alunoId','vinculadoEm','revisao','atualizadoEm','atualizadoPorUid'])
+            && request.resource.data.vinculadoEm == request.time && cadastroDaMatricula(request.resource.data))
+          || (admin() && minhaEscola(resource.data) && minhaEscola(request.resource.data)
+            && ((resource.data.alunoId == '' && (request.resource.data.alunoId == '' || (cadastroDaMatricula(request.resource.data) && request.resource.data.vinculadoEm == request.time)))
+              || (resource.data.alunoId != '' && request.resource.data.alunoId == resource.data.alunoId && request.resource.data.email == resource.data.email && request.resource.data.vinculadoEm == resource.data.vinculadoEm))));
+      allow delete: if false;
+    }
     function mesmaRefeicao(d) {
       let r = get(/databases/$(database)/documents/NomePratos/$(d.refeicaoId)).data;
       return minhaEscola(d) && d.escola == r.escola && d.data == r.data && d.turno == r.turno && d.refeicaoNome == r.nome;
     }
     function respostaAluno(d) {
       let r = get(/databases/$(database)/documents/NomePratos/$(d.refeicaoId)).data;
-      return aluno() && mesmaRefeicao(d) && r.ativo == true && d.turno in meusTurnos()
+      return aluno() && mesmaRefeicao(d) && prazosCoerentes(r) && r.ativo == true && d.turno in meusTurnos()
         && d.alunoId == request.auth.uid && d.alunoNome == perfil().nome && d.turma == perfil().turma
         && d.dataResposta == request.time;
     }
@@ -33,19 +91,34 @@ service cloud.firestore {
       allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
       allow list: if admin() && minhaEscola(resource.data);
       allow create: if signed() && request.auth.uid == uid
-        && request.resource.data.keys().hasOnly(['uid','nome','matricula','turma','turnos','turno','escola','email','tipoConta','aceitouTermos','versaoTermos','dataConsentimento','dataCadastro'])
+        && request.resource.data.keys().hasOnly(['uid','nome','matricula','turma','turmaId','turnos','turno','escola','email','tipoConta','aceitouTermos','versaoTermos','dataConsentimento','dataCadastro'])
         && request.resource.data.uid == uid && request.resource.data.tipoConta == 'aluno'
-        && escolaValida(request.resource.data.escola)
+        && escolaValida(request.resource.data.escola) && matriculaVinculada(request.resource.data)
         && texto(request.resource.data.nome, 3, 100) && request.resource.data.matricula is string && request.resource.data.matricula.matches('^[0-9]{5}$')
-        && texto(request.resource.data.turma, 1, 80) && request.resource.data.email == request.auth.token.email
+        && texto(request.resource.data.turma, 1, 80) && turmaEscolhida(request.resource.data) && request.resource.data.email == request.auth.token.email
         && request.resource.data.turnos is list && request.resource.data.turnos.size() >= 1 && request.resource.data.turnos.size() <= 3
         && request.resource.data.turnos.hasOnly(['manha','tarde','noite']) && request.resource.data.turnos.toSet().size() == request.resource.data.turnos.size()
         && request.resource.data.turno == request.resource.data.turnos[0]
         && request.resource.data.aceitouTermos == true && request.resource.data.versaoTermos in ['2026-10','2026-10-13']
         && request.resource.data.dataConsentimento == request.time && request.resource.data.dataCadastro == request.time;
       allow update: if verified() && request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['turma','email'])
-        && (resource.data.tipoConta == 'admin' || texto(request.resource.data.turma, 1, 80)) && request.resource.data.email == request.auth.token.email;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['turma','turmaId','email'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['turma','turmaId']) || (resource.data.tipoConta == 'aluno' && turmaEscolhida(request.resource.data)))
+        && request.resource.data.email == request.auth.token.email;
+      allow delete: if false;
+    }
+    match /turmas/{id} {
+      allow get: if (resource != null && resource.data.ativa == true && escolaValida(resource.data.escola))
+        || (admin() && (resource == null || minhaEscola(resource.data)));
+      allow list: if (resource.data.ativa == true && escolaValida(resource.data.escola)) || (admin() && minhaEscola(resource.data));
+      allow create, update: if admin() && minhaEscola(request.resource.data)
+        && id.matches('^' + chaveEscola(request.resource.data.escola) + '_.+')
+        && request.resource.data.keys().hasAll(['escola','nome','ativa','atualizadoPorUid','atualizadoEm','criadoEm'])
+        && request.resource.data.keys().hasOnly(['escola','nome','ativa','atualizadoPorUid','atualizadoEm','criadoEm'])
+        && texto(request.resource.data.nome,1,80) && request.resource.data.ativa is bool
+        && request.resource.data.atualizadoPorUid == request.auth.uid && request.resource.data.atualizadoEm == request.time
+        && ((resource == null && request.resource.data.criadoEm == request.time)
+          || (resource != null && minhaEscola(resource.data) && request.resource.data.nome == resource.data.nome && request.resource.data.criadoEm == resource.data.criadoEm));
       allow delete: if false;
     }
     function restricaoValida(uid, d) {
@@ -68,22 +141,61 @@ service cloud.firestore {
       allow create, update: if signed() && request.auth.uid == uid && restricaoValida(uid,request.resource.data);
       allow delete: if signed() && request.auth.uid == uid;
     }
-    function solicitacaoPrivacidadeValida(uid, d) {
-      let p = get(/databases/$(database)/documents/usuarios/$(uid)).data;
-      return aluno() && request.auth.uid == uid && p.tipoConta == 'aluno'
-        && d.keys().hasOnly(['alunoId','alunoNome','email','escola','matricula','turma','tipo','status','mensagem','versaoPolitica','criadoEm','atualizadoEm'])
+    function eventoPedido(d,uid) {
+      let h = getAfter(/databases/$(database)/documents/solicitacoesPrivacidade/$(uid)/historico/$(string(d.revisao))).data;
+      return h.revisao == d.revisao && h.ciclo == d.ciclo && h.autorUid == request.auth.uid && h.criadoEm == request.time;
+    }
+    function estruturaPedido(d) {
+      return d.keys().hasAll(['alunoId','alunoNome','email','escola','matricula','turma','tipo','status','mensagem','versaoPolitica','criadoEm','atualizadoEm','revisao','ciclo','resposta','atendidoPorUid','atendidoPorNome','atendidoEm'])
+        && d.keys().hasOnly(['alunoId','alunoNome','email','escola','matricula','turma','tipo','status','mensagem','versaoPolitica','criadoEm','atualizadoEm','revisao','ciclo','resposta','atendidoPorUid','atendidoPorNome','atendidoEm'])
+        && d.revisao is int && d.revisao > 0 && d.ciclo is int && d.ciclo > 0
+        && d.status in ['pendente','em_analise','concluida'] && texto(d.mensagem,0,500) && texto(d.resposta,0,1000)
+        && d.tipo == 'exclusao_dados' && d.versaoPolitica == '2026-10-13' && d.atualizadoEm == request.time;
+    }
+    function aberturaPedido(uid,d) {
+      let p = perfil();
+      return aluno() && request.auth.uid == uid && estruturaPedido(d)
         && d.alunoId == uid && d.alunoNome == p.nome && d.email == request.auth.token.email
         && d.escola == p.escola && d.matricula == p.matricula && d.turma == p.turma
-        && d.tipo == 'exclusao_dados' && d.status == 'pendente'
-        && texto(d.mensagem,0,500) && d.versaoPolitica == '2026-10-13'
-        && d.atualizadoEm == request.time
-        && ((resource == null && d.criadoEm == request.time) || (resource != null && d.criadoEm == resource.data.criadoEm));
+        && d.status == 'pendente' && d.resposta == '' && d.atendidoPorUid == '' && d.atendidoPorNome == '' && d.atendidoEm == null
+        && d.criadoEm == request.time && eventoPedido(d,uid)
+        && ((resource == null && d.revisao == 1 && d.ciclo == 1)
+          || (resource != null && resource.data.status == 'concluida' && minhaEscola(resource.data)
+            && d.revisao == resource.data.get('revisao',1) + 1 && d.ciclo == resource.data.get('ciclo',1) + 1));
+    }
+    function atendimentoPedido(uid,d) {
+      return admin() && minhaEscola(resource.data) && estruturaPedido(d) && minhaEscola(d)
+        && resource.data.status in ['pendente','em_analise'] && d.status in ['em_analise','concluida']
+        && d.diff(resource.data).affectedKeys().hasOnly(['status','resposta','atendidoPorUid','atendidoPorNome','atendidoEm','atualizadoEm','revisao','ciclo'])
+        && d.ciclo == resource.data.get('ciclo',1) && d.revisao == resource.data.get('revisao',1) + 1
+        && d.atendidoPorUid == request.auth.uid && d.atendidoPorNome == perfil().nome && d.atendidoEm == request.time
+        && (d.status != 'concluida' || texto(d.resposta,3,1000)) && eventoPedido(d,uid);
     }
     match /solicitacoesPrivacidade/{uid} {
       allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
       allow list: if admin() && minhaEscola(resource.data);
-      allow create, update: if signed() && request.auth.uid == uid && solicitacaoPrivacidadeValida(uid, request.resource.data);
+      allow create: if aberturaPedido(uid,request.resource.data);
+      allow update: if aberturaPedido(uid,request.resource.data) || atendimentoPedido(uid,request.resource.data);
       allow delete: if false;
+      match /historico/{eventoId} {
+        allow get, list: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(get(/databases/$(database)/documents/solicitacoesPrivacidade/$(uid)).data)));
+        allow create: if verified()
+          && request.resource.data.keys().hasAll(['revisao','ciclo','status','mensagem','resposta','pedidoEm','autorUid','autorNome','autorTipo','criadoEm'])
+          && request.resource.data.keys().hasOnly(['revisao','ciclo','status','mensagem','resposta','pedidoEm','autorUid','autorNome','autorTipo','criadoEm'])
+          && eventoId == string(request.resource.data.revisao)
+          && request.resource.data.autorUid == request.auth.uid && request.resource.data.autorNome == perfil().nome && request.resource.data.autorTipo == perfil().tipoConta
+          && request.resource.data.criadoEm == request.time
+          && historicoCoerente(uid,request.resource.data);
+        allow update,delete: if false;
+      }
+    }
+    function historicoCoerente(uid,h) {
+      let p = getAfter(/databases/$(database)/documents/solicitacoesPrivacidade/$(uid)).data;
+      let anterior = exists(/databases/$(database)/documents/solicitacoesPrivacidade/$(uid));
+      return minhaEscola(p) && (admin() || (aluno() && uid == request.auth.uid))
+        && p.atualizadoEm == request.time && h.revisao == p.revisao && h.ciclo == p.ciclo && h.status == p.status
+        && h.mensagem == p.mensagem && h.resposta == p.resposta && h.pedidoEm == p.criadoEm
+        && h.revisao == (anterior ? get(/databases/$(database)/documents/solicitacoesPrivacidade/$(uid)).data.get('revisao',1) + 1 : 1);
     }
     match /pratos/{id} {
       allow get: if admin() && (resource == null || minhaEscola(resource.data));
@@ -107,21 +219,26 @@ service cloud.firestore {
         && texto(d.tipo,1,80) && d.ativo is bool
         && d.slotId == chaveEscola(d.escola) + '_' + d.data + '_' + d.turno
         && a.escola == d.escola && a.data == d.data && a.turno == d.turno && a.refeicaoId == id && a.ativo == d.ativo
-        && d.limiteConfirmacao is timestamp && d.inicioAvaliacao is timestamp && d.limiteAvaliacao is timestamp
-        && d.limiteConfirmacao < d.inicioAvaliacao && d.inicioAvaliacao < d.limiteAvaliacao
-        && d.limiteAvaliacao - d.inicioAvaliacao < duration.value(5,'d')
+        && prazosCoerentes(d)
         && d.atualizadoPorUid == request.auth.uid && d.atualizadoEm == request.time;
     }
     match /NomePratos/{id} {
       allow get: if (admin() && resource == null) || minhaEscola(resource.data);
       allow list: if minhaEscola(resource.data);
-      allow create: if menuValido(request.resource.data,id) && request.resource.data.revisao == 1 && request.resource.data.criadoEm == request.time && request.resource.data.ativo == true;
-      allow update: if menuValido(request.resource.data,id) && minhaEscola(resource.data)
+      allow create: if menuValido(request.resource.data,id) && request.resource.data.revisao == 1 && request.resource.data.criadoEm == request.time && request.resource.data.ativo == true
+        && request.resource.data.data >= dataCivil(request.time - duration.value(3, 'h'));
+      allow update: if admin() && minhaEscola(resource.data) && minhaEscola(request.resource.data)
+        && resource.data.ativo == true
         && request.resource.data.revisao == resource.data.revisao + 1
         && request.resource.data.criadoEm == resource.data.criadoEm
         && request.resource.data.data == resource.data.data && request.resource.data.turno == resource.data.turno
         && request.resource.data.slotId == resource.data.slotId
-        && (resource.data.ativo == true || request.resource.data.ativo == false);
+        && ((menuValido(request.resource.data,id) && request.resource.data.ativo == true && request.time < resource.data.limiteConfirmacao)
+          || (request.resource.data.ativo == false
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ativo','revisao','atualizadoEm','atualizadoPorUid'])
+            && request.resource.data.atualizadoEm == request.time && request.resource.data.atualizadoPorUid == request.auth.uid
+            && getAfter(/databases/$(database)/documents/agenda/$(resource.data.slotId)).data.refeicaoId == id
+            && getAfter(/databases/$(database)/documents/agenda/$(resource.data.slotId)).data.ativo == false));
       allow delete: if false;
     }
     match /agenda/{id} {
@@ -187,6 +304,7 @@ service cloud.firestore {
           && inteiro(request.resource.data.sobraTotalG,1000000000)))
         && inteiro(request.resource.data.servidos,1000000) && texto(request.resource.data.observacao,0,500)
         && request.resource.data.atualizadoPorUid == request.auth.uid && request.resource.data.atualizadoEm == request.time
+        && prazosCoerentes(get(/databases/$(database)/documents/NomePratos/$(id)).data)
         && get(/databases/$(database)/documents/NomePratos/$(id)).data.inicioAvaliacao <= request.time
         && ((resource == null && get(/databases/$(database)/documents/NomePratos/$(id)).data.ativo == true && request.resource.data.revisao == 1 && request.resource.data.criadoPorUid == request.auth.uid && request.resource.data.criadoEm == request.time)
           || (resource != null && minhaEscola(resource.data) && request.resource.data.revisao == resource.data.revisao + 1 && request.resource.data.criadoEm == resource.data.criadoEm && request.resource.data.criadoPorUid == resource.data.criadoPorUid));

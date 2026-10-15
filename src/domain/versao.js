@@ -1,1 +1,1 @@
-export const VERSAO_APP = '4.4.1 — conta ADM pronta';
+export const VERSAO_APP = '4.7 — refeição do dia e matrículas em lote';

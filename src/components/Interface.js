@@ -1,7 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { estaEmDemo } from '../services/demo';
 import Icone from './Icone';
 
 export const ContextoAviso = React.createContext(false);

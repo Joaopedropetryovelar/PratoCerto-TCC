@@ -13,7 +13,7 @@ const POLITICA = [
   {
     titulo: '1. Quais dados coletamos',
     texto:
-      'O cadastro utiliza nome, matrícula, e-mail, escola, turma e turnos. As confirmações e avaliações ficam vinculadas à sua conta. A senha é gerenciada pelo Firebase Authentication e não é gravada no perfil escolar. As restrições alimentares são opcionais e ficam em um registro separado, com autorização específica.',
+      'O cadastro utiliza nome, matrícula, e-mail, escola, turma e turnos. A matrícula precisa estar previamente autorizada pela equipe da escola. O aluno informa e confirma o próprio e-mail ao criar a conta; a equipe pode liberar matrículas em lote sem cadastrar os e-mails. As confirmações e avaliações ficam vinculadas à sua conta. A senha é gerenciada pelo Firebase Authentication e não é gravada no perfil escolar. As restrições alimentares são opcionais e ficam em um registro separado, com autorização específica.',
   },
   {
     titulo: '2. Como usamos seus dados',
@@ -28,7 +28,7 @@ const POLITICA = [
   {
     titulo: '4. Seus direitos',
     texto:
-      'O usuário ou responsável pode solicitar acesso, correção, exclusão, anonimização e outras providências pelos canais definidos pela instituição. O perfil do aluno possui uma opção de pedido sobre dados pessoais, registrada para a equipe da própria escola. As restrições alimentares podem ser atualizadas ou retiradas no perfil. A retirada remove a declaração do registro ativo, sem excluir a conta e o histórico de refeições. Os pedidos sobre os demais dados são analisados pela instituição conforme as regras de conservação aplicáveis.',
+      'O usuário ou responsável pode solicitar acesso, correção, exclusão, anonimização e outras providências pelos canais definidos pela instituição. O perfil do aluno possui uma opção de pedido sobre dados pessoais, registrada para a equipe da própria escola. O status, a resposta e o histórico do atendimento ficam disponíveis no perfil do aluno e para a equipe autorizada. As restrições alimentares podem ser atualizadas ou retiradas no perfil. A retirada remove a declaração do registro ativo, sem excluir a conta e o histórico de refeições. Os pedidos sobre os demais dados são analisados pela instituição conforme as regras de conservação aplicáveis.',
   },
   {
     titulo: '5. Informações alimentares e de saúde',

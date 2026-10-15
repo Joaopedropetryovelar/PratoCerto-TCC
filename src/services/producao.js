@@ -1,5 +1,5 @@
 import { auth, database, doc, getDoc, alterarDoc, serverTimestamp } from './backend';
-import { agoraAplicativo, estaEmDemo } from './demo';
+import { agoraAplicativo } from './relogio';
 import { horarioValido, instanteEscola } from '../domain/refeicoes';
 import { validarProducao } from '../domain/producao';
 
@@ -30,6 +30,6 @@ export async function salvarProducao({ refeicaoId, formulario, revisaoEsperada =
     return { ...resultado.dados, schemaVersion: formulario.modo === 'rapido' ? 2 : 1, refeicaoId: refeicao.id, refeicaoNome: refeicao.nome || 'Refeição', data: refeicao.data,
       turno: refeicao.turno, escola: perfil.escola || '', revisao: revisaoEsperada + 1,
       criadoPorUid: anterior?.criadoPorUid || usuario.uid, criadoEm: anterior?.criadoEm || serverTimestamp(),
-      atualizadoPorUid: usuario.uid, atualizadoEm: serverTimestamp(), exemplo: estaEmDemo() };
+      atualizadoPorUid: usuario.uid, atualizadoEm: serverTimestamp(), exemplo: false };
   });
 }
