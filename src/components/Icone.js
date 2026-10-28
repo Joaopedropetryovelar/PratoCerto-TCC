@@ -6,6 +6,7 @@ const desenhos = {
   confirmar: 'M5 12l4 4L19 6',
   feedback: 'M21 11a8 8 0 0 1-8 8H9l-6 3v-6a8 8 0 0 1-1-4 9 9 0 0 1 9-9h2a8 8 0 0 1 8 8z',
   perfil: 'M4 21v-2a8 8 0 0 1 16 0v2',
+  matriculas: 'M5 3h14v18H5zM8 8h8M8 12h3M8 16l2 2 5-5',
   producao: 'M3 20h18M6 17V9h4v8M14 17V4h4v13',
   relatorios: 'M5 3h14v18H5zM8 16v-4M12 16V8M16 16v-6',
 };

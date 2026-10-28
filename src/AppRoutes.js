@@ -2,6 +2,7 @@ import TelaRefeicaoDiaAdmin from './routes/screens/TelaRefeicaoDiaAdmin';
 import TelaMatriculasAdmin from './routes/screens/TelaMatriculasAdmin';
 import TelaPrivacidadeAdmin from './routes/screens/TelaPrivacidadeAdmin';
 import TelaTurmasAdmin from './routes/screens/TelaTurmasAdmin';
+import TelaGestaoEscolarAdmin from './routes/screens/TelaGestaoEscolarAdmin';
 import TelaRestricoesAdmin from './routes/screens/TelaRestricoesAdmin';
 import Icone from './components/Icone';
 import React from "react";
@@ -150,6 +151,9 @@ function MenuEquipe({ navigation }) {
         }}
       />
 
+      <NavegadorAbas.Screen name="MatriculasAdmin" options={{ title: "Matrículas", tabBarIcon: ({ focused }) => <Icone nome="matriculas" cor={focused ? "#23624B" : "#6A7D73"} /> }}>
+        {(props) => <TelaMatriculasAdmin {...props} emAba />}
+      </NavegadorAbas.Screen>
       <NavegadorAbas.Screen name="Producao" component={TelaProducao} options={{ title: "Produção", tabBarIcon: ({ focused }) => <Icone nome="producao" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
       <NavegadorAbas.Screen name="Relatorios" component={TelaRelatorios} options={{ title: "Relatórios", tabBarIcon: ({ focused }) => <Icone nome="relatorios" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
 
@@ -185,6 +189,7 @@ export default function RotasAplicativo() {
       />
 
       <NavegadorPrincipal.Screen name="RefeicaoDiaAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRefeicaoDiaAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
+      <NavegadorPrincipal.Screen name="GestaoEscolarAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaGestaoEscolarAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
       <NavegadorPrincipal.Screen name="MatriculasAdmin" component={TelaMatriculasAdmin} />
       <NavegadorPrincipal.Screen name="PrivacidadeAdmin" component={TelaPrivacidadeAdmin} />
       <NavegadorPrincipal.Screen name="TurmasAdmin" component={TelaTurmasAdmin} />
