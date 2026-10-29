@@ -95,7 +95,7 @@ export default function TermosUsoScreen({ navigation }) {
           onPress={voltar}
         >
           <Text style={styles.buttonText}>
-            Concordo e continuar
+            Voltar
           </Text>
         </TouchableOpacity>
       </ScrollView>

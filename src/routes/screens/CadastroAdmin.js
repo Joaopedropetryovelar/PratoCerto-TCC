@@ -4,14 +4,63 @@ import { Botao, Campo, Carregando, Falha, Pagina, ui } from '../../components/In
 import { usePerfil } from '../../hooks/useDados';
 import { auth, convidarAdministrador, sendPasswordResetEmail } from '../../services/backend';
 import { emailNormalizado, emailValido } from '../../domain/contas';
+
 export default function CadastroAdmin({ navigation }) {
-  const perfil=usePerfil();const [nome,setNome]=useState('');const [email,setEmail]=useState('');const [erro,setErro]=useState(null);const [ocupado,setOcupado]=useState(false);const [criado,setCriado]=useState(null);const [emailEnviado,setEmailEnviado]=useState(false);const bloqueio=useRef(false);
-  async function criar(){if(bloqueio.current)return;if(nome.trim().length<3||nome.trim().length>100||!emailValido(email)){setErro('Informe um nome de 3 a 100 caracteres e um e-mail válido.');return;}bloqueio.current=true;setOcupado(true);setErro(null);try{const novo=await convidarAdministrador({nome:nome.trim(),email:emailNormalizado(email)});setCriado(novo);try{await sendPasswordResetEmail(auth,novo.email);setEmailEnviado(true);}catch{setErro('A conta foi criada, mas o envio do link falhou. Use Reenviar link; não crie a conta novamente.');}}catch(e){setErro(e.code==='functions/not-found'?'A função de autorização precisa ser instalada no Firebase. Consulte o guia FIREBASE_SETUP.md do projeto.':e.message||'Não foi possível autorizar a conta.');}finally{bloqueio.current=false;setOcupado(false);}}
-  async function reenviar(){if(bloqueio.current||!criado)return;bloqueio.current=true;setOcupado(true);try{await sendPasswordResetEmail(auth,criado.email);setEmailEnviado(true);setErro(null);}catch{setErro('Não foi possível enviar. A pessoa também pode usar Esqueci minha senha no login.');}finally{bloqueio.current=false;setOcupado(false);}}
-  return <Pagina estreita titulo="Autorizar administrador" subtitulo={`Nova conta da equipe · ${perfil.perfil?.escola||''}`}>
-    {perfil.carregando?<Carregando/>:perfil.erro?<Falha tentarNovamente={perfil.tentarNovamente}/>:perfil.perfil?.tipoConta!=='admin'?<View style={ui.card}><Text style={ui.texto}>Entre com uma conta de administrador para autorizar um novo membro.</Text><Botao onPress={()=>navigation.navigate('Login',{cadastrarAdmin:true})}>Entrar</Botao></View>:criado?<View style={ui.card}><Text style={ui.secao}>Conta autorizada</Text><Text style={ui.texto}>{criado.email}</Text><Text style={ui.texto}>{emailEnviado?'O link para definir a senha foi enviado.':'A conta está pronta; falta enviar o link de definição de senha.'} Depois a pessoa entra e confirma o e-mail. A escola foi vinculada automaticamente à sua.</Text><Botao secundario carregando={ocupado} onPress={reenviar}>Reenviar link de senha</Botao></View>:<>
-      <View style={ui.card}><Text style={ui.texto}>A autorização será conferida no servidor. Sua sessão continua aberta; você não precisa escolher a senha da outra pessoa.</Text><Campo label="Nome completo" value={nome} onChangeText={setNome} maxLength={100} editable={!ocupado}/><Campo label="E-mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!ocupado}/></View><Botao carregando={ocupado} onPress={criar}>Autorizar e enviar link de senha</Botao>
+  const perfil = usePerfil();
+  const [nome, setNome] = useState(''), [email, setEmail] = useState('');
+  const [erros, setErros] = useState({}), [erro, setErro] = useState(null), [ocupado, setOcupado] = useState(false);
+  const [convite, setConvite] = useState(null), [enviado, setEnviado] = useState(false), trava = useRef(false);
+  const autorizado = perfil.perfil?.tipoConta === 'admin' && perfil.perfil.acessoAtivo !== false && auth.currentUser?.emailVerified;
+  async function enviarLink(destino) {
+    await sendPasswordResetEmail(auth, destino.email);
+    setEnviado(true);
+  }
+  async function adicionar() {
+    if (trava.current || !autorizado) return;
+    const falhas = {};
+    if (nome.trim().length < 3 || nome.trim().length > 100) falhas.nome = 'Informe o nome completo, de 3 a 100 caracteres.';
+    if (!emailValido(email)) falhas.email = 'Informe um e-mail que a pessoa consiga acessar.';
+    setErros(falhas); setErro(null);
+    if (Object.keys(falhas).length) return;
+    trava.current = true; setOcupado(true); setEnviado(false);
+    try {
+      const resultado = await convidarAdministrador({ nome: nome.trim(), email: emailNormalizado(email) });
+      setConvite(resultado);
+      try { await enviarLink(resultado); }
+      catch { setErro('O acesso já está autorizado, mas o envio falhou. Toque em Enviar link novamente.'); }
+    } catch (e) {
+      if (['functions/permission-denied','functions/unauthenticated'].includes(e.code)) setErro('Entre novamente com uma conta ativa da direção.');
+      else if (['functions/internal','functions/unavailable','functions/deadline-exceeded','functions/not-found'].includes(e.code) || /publicar as funções/i.test(e.message || '')) setErro('O serviço de autorização está indisponível. Tente novamente; se continuar, procure o responsável pelo aplicativo.');
+      else setErro(e.message || 'Não foi possível autorizar o acesso. Tente novamente.');
+    } finally { trava.current = false; setOcupado(false); }
+  }
+  async function reenviar() {
+    if (trava.current || !convite || !autorizado) return;
+    trava.current = true; setOcupado(true); setErro(null);
+    try { await enviarLink(convite); }
+    catch { setErro('Não foi possível enviar o e-mail. Confira a conexão e tente novamente.'); }
+    finally { trava.current = false; setOcupado(false); }
+  }
+  function novo() { setConvite(null); setNome(''); setEmail(''); setErros({}); setErro(null); setEnviado(false); }
+  return <Pagina estreita titulo="Novo administrador" subtitulo={perfil.perfil?.escola || 'Equipe da direção'}>
+    {perfil.carregando ? <Carregando /> : perfil.erro ? <Falha mensagem={perfil.erro} tentarNovamente={perfil.tentarNovamente} /> : !autorizado ? <View style={ui.card}><Text style={ui.texto}>Somente um administrador ativo e com e-mail confirmado pode autorizar novos integrantes da própria escola.</Text></View> : convite ? <View testID="convite-admin-criado" style={ui.card}>
+      <Text style={ui.secao}>{convite.jaExistia ? 'Acesso já autorizado' : 'Administrador autorizado'}</Text>
+      <Text style={ui.label}>{convite.nome}</Text><Text selectable style={ui.texto}>{convite.email}</Text>
+      <Text accessibilityLiveRegion="polite" style={ui.selo}>{enviado ? 'Link de senha enviado por e-mail.' : 'Falta enviar o link de senha.'}</Text>
+      <Text style={ui.texto}>A pessoa abre o e-mail, define a própria senha e entra no aplicativo escolhendo {convite.escola}. Se o app pedir confirmação do endereço, ela segue o link de verificação.</Text>
+      <Botao testID="reenviar-convite-admin" secundario carregando={ocupado} onPress={reenviar}>Enviar link novamente</Botao>
+      <Botao disabled={ocupado} onPress={novo}>Adicionar outra pessoa</Botao>
+      <Botao secundario disabled={ocupado} onPress={() => navigation.navigate('EquipeAdmin')}>Ver equipe da direção</Botao>
+    </View> : <>
+      <View style={ui.card}>
+        <Text style={ui.texto}>Informe quem fará parte da direção. A escola será vinculada automaticamente à sua.</Text>
+        <Campo testID="nome-novo-admin" label="Nome completo" value={nome} onChangeText={setNome} erro={erros.nome} maxLength={100} editable={!ocupado} autoCapitalize="words" />
+        <Campo testID="email-novo-admin" label="E-mail do novo administrador" value={email} onChangeText={setEmail} erro={erros.email} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!ocupado} maxLength={254} />
+      </View>
+      <Botao testID="autorizar-novo-admin" carregando={ocupado} onPress={adicionar}>Autorizar e enviar acesso</Botao>
+      <Text style={ui.pequeno}>O novo integrante recebe um link para definir a senha. Sua conta continua conectada.</Text>
     </>}
-    {erro?<Text style={ui.erro} accessibilityRole="alert">{erro}</Text>:null}<Botao secundario disabled={ocupado} onPress={()=>navigation.goBack()}>Voltar</Botao>
+    {erro ? <Text accessibilityRole="alert" style={ui.erro}>{erro}</Text> : null}
+    <Botao secundario disabled={ocupado} onPress={() => navigation.goBack()}>Voltar</Botao>
   </Pagina>;
 }

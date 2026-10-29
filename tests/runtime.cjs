@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const Module = require('node:module');
 const babel = require('@babel/core');
-const React = require('react');
+// O renderizador e os componentes devem compartilhar a mesma instância de React.
+const React = require('node:module').createRequire(require.resolve('react-test-renderer'))('react');
 const renderer = require('react-test-renderer');
 global.IS_REACT_ACT_ENVIRONMENT = true;
 

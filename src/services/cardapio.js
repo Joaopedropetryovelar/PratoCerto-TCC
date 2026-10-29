@@ -4,6 +4,13 @@ import { dataValida, horarioValido, dataDaEscola, instanteEscola } from '../doma
 import { limiteAvaliacao } from '../domain/calendario';
 import { agoraAplicativo } from './relogio';
 const turnos = ['manha', 'tarde', 'noite'];
+function registrarRevisao(tx, ref, dados, uid) {
+  const { escola, revisao, nome, descricao, horarioLimite, horarioFim, ativo } = dados;
+  tx.set(doc(database, `NomePratos/${ref.id}/historico`, String(revisao)), {
+    escola, revisao, nome, descricao, horarioLimite, horarioFim, ativo,
+    autorUid: uid, criadoEm: serverTimestamp(),
+  });
+}
 
 async function equipe() {
   const usuario = auth.currentUser;
@@ -76,6 +83,7 @@ export async function salvarRefeicao({ data, turno, pratoId, prato, horarioLimit
     item.limiteAvaliacao = timestampData(limiteAvaliacao(item));
     if (prato && (!catalogo.exists() || catalogo.data().nome !== alimento.nome || (catalogo.data().descricao || '') !== alimento.descricao)) tx.set(pratoRef, alimento);
     tx.set(refeicaoRef, item);
+    registrarRevisao(tx, refeicaoRef, item, perfil.uid);
     tx.set(agendaRef, { escola: perfil.escola, data, turno, refeicaoId: refeicaoRef.id, ativo: true });
     return { ...item, id: refeicaoRef.id };
   });
@@ -92,7 +100,9 @@ export async function excluirRefeicao(refeicao) {
     if (dados.ativo === false) throw new Error('Esta refeição já foi excluída do cardápio.');
     const agendaRef = doc(database, 'agenda', dados.slotId);
     const agenda = await tx.get(agendaRef);
-    tx.set(ref, { ...dados, ativo: false, revisao: dados.revisao + 1, atualizadoEm: serverTimestamp(), atualizadoPorUid: perfil.uid });
+    const arquivada = { ...dados, ativo: false, revisao: dados.revisao + 1, atualizadoEm: serverTimestamp(), atualizadoPorUid: perfil.uid };
+    tx.set(ref, arquivada);
+    registrarRevisao(tx, ref, arquivada, perfil.uid);
     if (agenda.exists() && agenda.data().refeicaoId === ref.id) tx.set(agendaRef, { ...agenda.data(), ativo: false });
   });
 }

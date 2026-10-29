@@ -1,3 +1,4 @@
+import AvisoInstitucional from '../../components/AvisoInstitucional';
 import { SafeAreaView } from "react-native-safe-area-context";
 import React from 'react';
 import {
@@ -28,7 +29,7 @@ const POLITICA = [
   {
     titulo: '4. Seus direitos',
     texto:
-      'O usuário ou responsável pode solicitar acesso, correção, exclusão, anonimização e outras providências pelos canais definidos pela instituição. O perfil do aluno possui uma opção de pedido sobre dados pessoais, registrada para a equipe da própria escola. O status, a resposta e o histórico do atendimento ficam disponíveis no perfil do aluno e para a equipe autorizada. As restrições alimentares podem ser atualizadas ou retiradas no perfil. A retirada remove a declaração do registro ativo, sem excluir a conta e o histórico de refeições. Os pedidos sobre os demais dados são analisados pela instituição conforme as regras de conservação aplicáveis.',
+      'O usuário ou responsável pode solicitar acesso, correção, exclusão, anonimização e outras providências pelos canais definidos pela instituição. O perfil do aluno possui uma opção de pedido sobre dados pessoais, registrada para a equipe da própria escola. O status, a resposta e o histórico do atendimento ficam disponíveis no perfil do aluno e para a equipe autorizada. As restrições alimentares podem ser atualizadas ou retiradas no perfil. A retirada remove a declaração do registro ativo, sem excluir a conta e o histórico de refeições. Você pode obter uma cópia dos dados no perfil. A direção pode executar exclusão da conta e dos dados alimentares; as respostas são transformadas em registros operacionais sem nome, matrícula, e-mail ou comentário. Um comprovante mínimo do atendimento é conservado conforme os critérios publicados pela instituição.',
   },
   {
     titulo: '5. Informações alimentares e de saúde',
@@ -73,6 +74,7 @@ export default function PoliticaPrivacidadeScreen({ navigation }) {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        <AvisoInstitucional />
         <View style={styles.card}>
           {POLITICA.map((item) => (
             <View
@@ -105,7 +107,7 @@ export default function PoliticaPrivacidadeScreen({ navigation }) {
           onPress={voltar}
         >
           <Text style={styles.buttonText}>
-            Concordo e continuar
+            Voltar
           </Text>
         </TouchableOpacity>
       </ScrollView>

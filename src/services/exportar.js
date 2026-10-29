@@ -49,3 +49,19 @@ async function compartilharArquivo(nome, conteudo, mimeType, UTI) {
     throw erro;
   }
 }
+
+export async function exportarDadosPessoais(dados) {
+  const texto = JSON.stringify(dados, null, 2), nome = 'Meus-dados-PratoCerto.json';
+  if (Platform.OS === 'web') {
+    const endereco = URL.createObjectURL(new Blob([texto], {type:'application/json'}));
+    const link = document.createElement('a'); link.href = endereco; link.download = nome;
+    document.body.appendChild(link);
+    try { link.click(); } finally { link.remove(); setTimeout(() => URL.revokeObjectURL(endereco), 1000); }
+    return;
+  }
+  const { File, Paths } = require('expo-file-system'), Sharing = require('expo-sharing');
+  if (!(await Sharing.isAvailableAsync())) throw new Error('Compartilhamento indisponível. Solicite a cópia à direção.');
+  const arquivo = new File(Paths.cache, `${Date.now()}_${nome}`);
+  try { arquivo.create({overwrite:true}); arquivo.write(texto); await Sharing.shareAsync(arquivo.uri,{mimeType:'application/json',UTI:'public.json'}); }
+  finally { if (arquivo.exists) arquivo.delete(); }
+}

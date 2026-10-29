@@ -1,4 +1,5 @@
 import { auth, database, doc, getDoc, getDocs, collection, query, where, limit, executarTransacao, serverTimestamp } from './backend';
+import { emailNormalizado, emailValido } from '../domain/contas';
 import { analisarListaMatriculas, chaveMatricula, revisaoMatricula } from '../domain/matriculas';
 async function equipe() {
   const usuario = auth.currentUser;
@@ -7,7 +8,7 @@ async function equipe() {
   if (!snap.exists() || snap.data().tipoConta !== 'admin') throw new Error('Somente a equipe pode autorizar matrículas.');
   return { ...snap.data(), uid: usuario.uid };
 }
-async function autorizar(perfil, matricula, revisaoEsperada, lote = false) {
+async function autorizar(perfil, matricula, revisaoEsperada, lote = false, email = '') {
   const id = chaveMatricula(perfil.escola, matricula);
   const antigos = await getDocs(query(collection(database, 'usuarios'), where('escola', '==', perfil.escola), where('matricula', '==', matricula), limit(2)));
   if (antigos.docs.length > 1) throw new Error('Esta matrícula já possui cadastros duplicados. A equipe responsável pelo Firebase precisa regularizá-los.');
@@ -26,15 +27,17 @@ async function autorizar(perfil, matricula, revisaoEsperada, lote = false) {
     if (lote && anterior?.ativa === false) return { id, matricula, status: 'inativa' };
     if (!lote && revisaoMatricula(anterior) !== revisaoEsperada) throw new Error('A matrícula foi atualizada. Recarregue a lista antes de continuar.');
     if (antigo && (!legado.exists() || legado.data().tipoConta !== 'aluno' || legado.data().escola !== perfil.escola || legado.data().matricula !== matricula)) throw new Error('O cadastro existente mudou. Recarregue a lista.');
-    if (lote && anterior?.ativa && !anterior.email && !antigo) return { id, matricula, status: 'existente' };
-    const dados = { escola: perfil.escola, matricula, email: '', ativa: true, alunoId: antigo?.id || '', vinculadoEm: antigo ? serverTimestamp() : null, revisao: revisaoMatricula(anterior) + 1, criadoEm: anterior ? anterior.criadoEm : serverTimestamp(), atualizadoEm: serverTimestamp(), atualizadoPorUid: perfil.uid };
+    if (lote && anterior?.ativa && !antigo) return { id, matricula, status: 'existente' };
+    const dados = { escola: perfil.escola, matricula, email: lote ? anterior?.email || '' : email, ativa: true, alunoId: antigo?.id || '', vinculadoEm: antigo ? serverTimestamp() : null, revisao: revisaoMatricula(anterior) + 1, criadoEm: anterior ? anterior.criadoEm : serverTimestamp(), atualizadoEm: serverTimestamp(), atualizadoPorUid: perfil.uid };
     tx.set(ref, dados);
-    return { ...dados, id, status: antigo ? 'vinculada' : anterior?.email ? 'atualizada' : 'autorizada' };
+    return { ...dados, id, status: antigo ? 'vinculada' : anterior ? 'atualizada' : 'autorizada' };
   });
 }
-export async function autorizarMatricula({ matricula, revisaoEsperada = 0 }) {
+export async function autorizarMatricula({ matricula, revisaoEsperada = 0, email = '' }) {
   if (!Number.isSafeInteger(revisaoEsperada) || revisaoEsperada < 0) throw new Error('Recarregue a lista de matrículas.');
-  return autorizar(await equipe(), String(matricula).trim(), revisaoEsperada);
+  const vinculo = emailNormalizado(email);
+  if (vinculo && !emailValido(vinculo)) throw new Error('Informe um e-mail válido ou deixe o vínculo vazio.');
+  return autorizar(await equipe(), String(matricula).trim(), revisaoEsperada, false, vinculo);
 }
 export async function autorizarMatriculasEmLote(texto, aoProgredir = () => {}) {
   const lista = analisarListaMatriculas(texto);

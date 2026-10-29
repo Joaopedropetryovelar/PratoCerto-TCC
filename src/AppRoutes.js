@@ -1,275 +1,113 @@
-import TelaRefeicaoDiaAdmin from './routes/screens/TelaRefeicaoDiaAdmin';
-import TelaMatriculasAdmin from './routes/screens/TelaMatriculasAdmin';
-import TelaPrivacidadeAdmin from './routes/screens/TelaPrivacidadeAdmin';
-import TelaTurmasAdmin from './routes/screens/TelaTurmasAdmin';
-import TelaGestaoEscolarAdmin from './routes/screens/TelaGestaoEscolarAdmin';
-import TelaRestricoesAdmin from './routes/screens/TelaRestricoesAdmin';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { ContextoCabecalho } from './components/Interface';
+import AreaProtegida from './components/AreaProtegida';
 import Icone from './components/Icone';
-import React from "react";
+import MenuLateralAdmin from './components/MenuLateralAdmin';
+import { auth, signOut } from './services/backend';
+import { usePerfil } from './hooks/useDados';
+import TelaInicial from './routes/screens/TelaInicial';
+import TelaLogin from './routes/screens/TelaLogin';
+import TelaEsqueciSenha from './routes/screens/TelaEsqueciSenha';
+import TelaVerificarEmail from './routes/screens/TelaVerificarEmail';
+import EscolhaCadastro from './routes/screens/EscolhaCadastro';
+import VerificarAdmin from './routes/screens/VerificarAdmin';
+import ConsentimentoNavigator from './routes/screens/ConsentimentoNavigator';
+import TelaHomeAluno from './routes/screens/TelaHomeAluno';
+import TelaDeConfirmacao from './routes/screens/TelaDeConfirmacao';
+import TelaFeedbackAluno from './routes/screens/TelaFeedbackAluno';
+import TelaPerfilAluno from './routes/screens/TelaPerfilAluno';
+import DashboardAdmin from './routes/screens/DashboardAdmin';
+import AdminCardapio from './routes/screens/AdminCardapio';
+import TelaRefeicaoDiaAdmin from './routes/screens/TelaRefeicaoDiaAdmin';
+import TelaProducao from './routes/screens/TelaProducao';
+import TelaRelatorios from './routes/screens/TelaRelatorios';
+import TelaDeFeedbackAdmin from './routes/screens/TelaDeFeedbackAdmin';
+import TelaRestricoesAdmin from './routes/screens/TelaRestricoesAdmin';
+import TelaMatriculasAdmin from './routes/screens/TelaMatriculasAdmin';
+import TelaTurmasAdmin from './routes/screens/TelaTurmasAdmin';
+import TelaEquipeAdmin from './routes/screens/TelaEquipeAdmin';
+import CadastroAdmin from './routes/screens/CadastroAdmin';
+import TelaCatalogoAdmin from './routes/screens/TelaCatalogoAdmin';
+import TelaPrivacidadeAdmin from './routes/screens/TelaPrivacidadeAdmin';
+import TelaConfiguracaoAdmin from './routes/screens/TelaConfiguracaoAdmin';
+import TelaGestaoEscolarAdmin from './routes/screens/TelaGestaoEscolarAdmin';
 
-import {
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-
-import {
-  createNativeStackNavigator,
-} from "@react-navigation/native-stack";
-
-import {
-  createBottomTabNavigator,
-} from "@react-navigation/bottom-tabs";
-
-import TelaInicial from "./routes/screens/TelaInicial";
-import TelaEsqueciSenha from "./routes/screens/TelaEsqueciSenha";
-import TelaVerificarEmail from "./routes/screens/TelaVerificarEmail";
-import TelaLogin from "./routes/screens/TelaLogin";
-import TelaHomeAluno from "./routes/screens/TelaHomeAluno";
-import TelaCardapioAdmin from "./routes/screens/AdminCardapio";
-import DashboardAdmin from "./routes/screens/DashboardAdmin";
-import TelaDeConfirmacao from "./routes/screens/TelaDeConfirmacao";
-import TelaPerfilAluno from "./routes/screens/TelaPerfilAluno";
-import TelaDeFeedbackAdmin from "./routes/screens/TelaDeFeedbackAdmin";
-import TelaDeFeedbackAluno from "./routes/screens/TelaFeedbackAluno";
-
-import CadastroAdmin from "./routes/screens/CadastroAdmin";
-import EscolhaCadastro from "./routes/screens/EscolhaCadastro";
-import VerificarAdmin from "./routes/screens/VerificarAdmin";
-
-import ConsentimentoNavigator from "./routes/screens/ConsentimentoNavigator";
-
-import TelaProducao from "./routes/screens/TelaProducao";
-import TelaRelatorios from "./routes/screens/TelaRelatorios";
-import AreaProtegida from "./components/AreaProtegida";
-
-const NavegadorPrincipal =
-  createNativeStackNavigator();
-
-const NavegadorAbas =
-  createBottomTabNavigator();
+const Principal = createNativeStackNavigator();
+const Equipe = createNativeStackNavigator();
+const AbasAluno = createBottomTabNavigator();
 
 function MenuAluno({ navigation }) {
-  return (
-    <AreaProtegida tipoConta="aluno" navigation={navigation}><View style={{ flex: 1 }}>
-    <NavegadorAbas.Navigator
-      initialRouteName="Cardapio"
-      screenOptions={opcoesMenuInferior}
-    >
-      <NavegadorAbas.Screen
-        name="Cardapio"
-        component={TelaHomeAluno}
-        options={{
-          title: "Cardápio",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="inicio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-
-      <NavegadorAbas.Screen
-        name="Confirmacao"
-        component={TelaDeConfirmacao}
-        options={{
-          title: "Confirmar",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="confirmar" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-
-      <NavegadorAbas.Screen
-        name="Feedback"
-        component={TelaDeFeedbackAluno}
-        options={{
-          title: "Feedback",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="feedback" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-
-      <NavegadorAbas.Screen
-        name="PerfilAluno"
-        component={TelaPerfilAluno}
-        options={{
-          title: "Perfil",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="perfil" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-    </NavegadorAbas.Navigator>
-    </View></AreaProtegida>
-  );
+  return <AreaProtegida tipoConta="aluno" navigation={navigation}>
+    <AbasAluno.Navigator initialRouteName="Cardapio" screenOptions={opcoesAluno}>
+      <AbasAluno.Screen name="Cardapio" component={TelaHomeAluno} options={{ title: 'Cardápio', tabBarIcon: ({ color }) => <Icone nome="inicio" cor={color} /> }} />
+      <AbasAluno.Screen name="Feedback" component={TelaFeedbackAluno} options={{ title: 'Avaliações', tabBarIcon: ({ color }) => <Icone nome="feedback" cor={color} /> }} />
+      <AbasAluno.Screen name="PerfilAluno" component={TelaPerfilAluno} options={{ title: 'Perfil', tabBarIcon: ({ color }) => <Icone nome="perfil" cor={color} /> }} />
+    </AbasAluno.Navigator>
+  </AreaProtegida>;
 }
 
 function MenuEquipe({ navigation }) {
-  return (
-    <AreaProtegida tipoConta="admin" navigation={navigation}><View style={{ flex: 1 }}>
-    <NavegadorAbas.Navigator
-      initialRouteName="DashboardAdmin"
-      screenOptions={opcoesMenuInferior}
-    >
-      <NavegadorAbas.Screen
-        name="DashboardAdmin"
-        component={DashboardAdmin}
-        options={{
-          title: "Início",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="inicio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-
-      <NavegadorAbas.Screen
-        name="CardapioAdmin"
-        component={TelaCardapioAdmin}
-        options={{
-          title: "Cardápio",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="cardapio" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-
-      <NavegadorAbas.Screen name="MatriculasAdmin" options={{ title: "Matrículas", tabBarIcon: ({ focused }) => <Icone nome="matriculas" cor={focused ? "#23624B" : "#6A7D73"} /> }}>
-        {(props) => <TelaMatriculasAdmin {...props} emAba />}
-      </NavegadorAbas.Screen>
-      <NavegadorAbas.Screen name="Producao" component={TelaProducao} options={{ title: "Produção", tabBarIcon: ({ focused }) => <Icone nome="producao" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
-      <NavegadorAbas.Screen name="Relatorios" component={TelaRelatorios} options={{ title: "Relatórios", tabBarIcon: ({ focused }) => <Icone nome="relatorios" cor={focused ? "#23624B" : "#6A7D73"} /> }} />
-
-      <NavegadorAbas.Screen
-        name="FeedbackAdmin"
-        component={TelaDeFeedbackAdmin}
-        options={{
-          title: "Feedback",
-
-          tabBarIcon: ({
-            focused: estaSelecionado,
-          }) => (
-            <Icone nome="feedback" cor={estaSelecionado ? "#23624B" : "#6A7D73"} />
-          ),
-        }}
-      />
-    </NavegadorAbas.Navigator>
-    </View></AreaProtegida>
-  );
+  const perfil = usePerfil();
+  const [menu, setMenu] = useState(null);
+  function selecionar(rota) {
+    const rotas = rota === 'DashboardAdmin' ? [{ name: rota }] : [{ name: 'DashboardAdmin' }, { name: rota }];
+    menu.navigation.reset({ index: rotas.length - 1, routes: rotas });
+    setMenu(null);
+  }
+  async function sair() {
+    await signOut(auth); setMenu(null);
+    navigation.reset({ index: 0, routes: [{ name: 'Inicial' }] });
+  }
+  return <AreaProtegida tipoConta="admin" navigation={navigation}><ContextoCabecalho.Provider value={true}><View style={{ flex: 1 }}>
+    <Equipe.Navigator initialRouteName="DashboardAdmin" screenOptions={({ navigation: interna, route }) => ({
+      title: 'Prato Certo', headerTintColor: '#173F32', headerStyle: { backgroundColor: '#FFFFFF' },
+      headerLeft: () => <TouchableOpacity testID="abrir-menu-admin" accessibilityRole="button" accessibilityLabel="Abrir menu da direção" onPress={() => setMenu({ navigation: interna, rota: route.name })} style={estilos.abrirMenu}><Icone nome="menu" tamanho={26} /></TouchableOpacity>,
+    })}>
+      <Equipe.Screen name="DashboardAdmin" component={DashboardAdmin} />
+      <Equipe.Screen name="CardapioAdmin" component={AdminCardapio} />
+      <Equipe.Screen name="RefeicaoDiaAdmin" component={TelaRefeicaoDiaAdmin} />
+      <Equipe.Screen name="Producao" component={TelaProducao} />
+      <Equipe.Screen name="Relatorios" component={TelaRelatorios} />
+      <Equipe.Screen name="FeedbackAdmin" component={TelaDeFeedbackAdmin} />
+      <Equipe.Screen name="RestricoesAdmin" component={TelaRestricoesAdmin} />
+      <Equipe.Screen name="MatriculasAdmin" component={TelaMatriculasAdmin} />
+      <Equipe.Screen name="TurmasAdmin" component={TelaTurmasAdmin} />
+      <Equipe.Screen name="EquipeAdmin" component={TelaEquipeAdmin} />
+      <Equipe.Screen name="CadastroAdmin" component={CadastroAdmin} />
+      <Equipe.Screen name="CatalogoAdmin" component={TelaCatalogoAdmin} />
+      <Equipe.Screen name="PrivacidadeAdmin" component={TelaPrivacidadeAdmin} />
+      <Equipe.Screen name="ConfiguracaoAdmin" component={TelaConfiguracaoAdmin} />
+      <Equipe.Screen name="GestaoEscolarAdmin" component={TelaGestaoEscolarAdmin} />
+      <Equipe.Screen name="ContaAdmin" component={TelaPerfilAluno} />
+    </Equipe.Navigator>
+    <MenuLateralAdmin aberto={Boolean(menu)} rotaAtual={menu?.rota} escola={perfil.perfil?.escola} onFechar={() => setMenu(null)} onSelecionar={selecionar} onSair={sair} />
+  </View></ContextoCabecalho.Provider></AreaProtegida>;
 }
 
-export default function RotasAplicativo() {
-  return (
-    <NavegadorPrincipal.Navigator
-      initialRouteName="Inicial"
-      screenOptions={{
-        headerShown: false,
-      }}
-    >
-      <NavegadorPrincipal.Screen
-        name="Inicial"
-        component={TelaInicial}
-      />
-
-      <NavegadorPrincipal.Screen name="RefeicaoDiaAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRefeicaoDiaAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
-      <NavegadorPrincipal.Screen name="GestaoEscolarAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaGestaoEscolarAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
-      <NavegadorPrincipal.Screen name="MatriculasAdmin" component={TelaMatriculasAdmin} />
-      <NavegadorPrincipal.Screen name="PrivacidadeAdmin" component={TelaPrivacidadeAdmin} />
-      <NavegadorPrincipal.Screen name="TurmasAdmin" component={TelaTurmasAdmin} />
-      <NavegadorPrincipal.Screen name="RestricoesAdmin">{(props) => <AreaProtegida tipoConta="admin" navigation={props.navigation}><TelaRestricoesAdmin {...props} /></AreaProtegida>}</NavegadorPrincipal.Screen>
-      <NavegadorPrincipal.Screen name="EsqueciSenha" component={TelaEsqueciSenha} />
-      <NavegadorPrincipal.Screen name="VerificarEmail" component={TelaVerificarEmail} />
-
-      <NavegadorPrincipal.Screen
-        name="Login"
-        component={TelaLogin}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="EscolhaCadastro"
-        component={EscolhaCadastro}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="VerificarAdmin"
-        component={VerificarAdmin}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="CadastroAdmin"
-        component={CadastroAdmin}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="Consentimento"
-        component={ConsentimentoNavigator}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="HomeAluno"
-        component={MenuAluno}
-      />
-
-      <NavegadorPrincipal.Screen
-        name="HomeAdmin"
-        component={MenuEquipe}
-      />
-    </NavegadorPrincipal.Navigator>
-  );
+export default function AppRoutes() {
+  return <Principal.Navigator initialRouteName="Inicial" screenOptions={{ headerShown: false }}>
+    <Principal.Screen name="Inicial" component={TelaInicial} />
+    <Principal.Screen name="Login" component={TelaLogin} />
+    <Principal.Screen name="EsqueciSenha" component={TelaEsqueciSenha} />
+    <Principal.Screen name="VerificarEmail" component={TelaVerificarEmail} />
+    <Principal.Screen name="EscolhaCadastro" component={EscolhaCadastro} />
+    <Principal.Screen name="VerificarAdmin" component={VerificarAdmin} />
+    <Principal.Screen name="Consentimento" component={ConsentimentoNavigator} />
+    <Principal.Screen name="Confirmacao">{props => <AreaProtegida tipoConta="aluno" navigation={props.navigation}><TelaDeConfirmacao {...props} /></AreaProtegida>}</Principal.Screen>
+    <Principal.Screen name="HomeAluno" component={MenuAluno} />
+    <Principal.Screen name="HomeAdmin" component={MenuEquipe} />
+  </Principal.Navigator>;
 }
 
 const estilos = StyleSheet.create({
-  barraNavegacao: {
-    backgroundColor: "#FFFFFF",
-    borderTopColor: "#DCE8D2",
-    borderTopWidth: 1,
-    paddingTop: 8,
-    minHeight: 66,
-  },
-
-  textoAba: {
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  iconeSelecionado: {
-    fontSize: 24,
-  },
-
-  iconeNaoSelecionado: {
-    fontSize: 21,
-  },
+  abrirMenu: { minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
+  barraAluno: { backgroundColor: '#FFFFFF', borderTopColor: '#DDE5DF', borderTopWidth: 1, paddingTop: 8, minHeight: 76 },
 });
-
-const opcoesMenuInferior = {
-  headerShown: false,
-
-  tabBarActiveTintColor:
-    "#2F6B4F",
-
-  tabBarInactiveTintColor:
-    "#8A978B",
-
-  tabBarStyle:
-    estilos.barraNavegacao,
-
-  tabBarLabelStyle:
-    estilos.textoAba,
+const opcoesAluno = {
+  headerShown: false, tabBarActiveTintColor: '#23624B', tabBarInactiveTintColor: '#6A7D73',
+  tabBarStyle: estilos.barraAluno, tabBarLabelPosition: 'below-icon',
+  tabBarLabel: ({ children, color }) => <Text numberOfLines={2} style={{ fontSize: 11, lineHeight: 15, fontWeight: '600', color, textAlign: 'center' }}>{children}</Text>,
 };

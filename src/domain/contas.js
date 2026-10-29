@@ -21,6 +21,7 @@ export function validarCadastro(dados) {
   if (!emailValido(dados.email)) erros.email = 'Informe um e-mail válido que você consiga acessar.';
   const senha = erroSenha(dados.senha); if (senha) erros.senha = senha;
   if (dados.senha !== dados.confirmarSenha) erros.confirmarSenha = 'As senhas precisam ser iguais.';
+  if (dados.cientePrivacidade !== true) erros.privacidade = 'Confirme que leu o aviso de privacidade.';
   if (dados.aceitouTermos !== true) erros.termos = 'Leia e aceite os documentos para criar sua conta.';
   if (dados.restricoes) { const alimentares = validarRestricoes(dados.restricoes); if (Object.keys(alimentares).length) erros.restricoes = Object.values(alimentares)[0]; }
   return erros;

@@ -14,14 +14,15 @@ function escreverPedido(tx,ref,dados,autor){
   const evento={revisao:dados.revisao,ciclo:dados.ciclo,status:dados.status,mensagem:dados.mensagem,resposta:dados.resposta,pedidoEm:dados.criadoEm,autorUid:autor.uid,autorNome:autor.nome,autorTipo:autor.tipoConta,criadoEm:serverTimestamp()};
   tx.set(ref,dados);tx.set(doc(database,`solicitacoesPrivacidade/${ref.id}/historico`,String(dados.revisao)),evento);
 }
-export async function solicitarExclusaoDados(mensagem=''){
+export async function solicitarExclusaoDados(mensagem='',tipo='exclusao_dados'){
+  if(!['exclusao_dados','acesso_dados','correcao_dados','anonimizacao_dados'].includes(tipo))throw new Error('Escolha um tipo de pedido válido.');
   if(typeof mensagem!=='string'||mensagem.trim().length>500)throw new Error('Use uma mensagem de até 500 caracteres.');
   const perfil=await contexto('aluno'),ref=doc(database,'solicitacoesPrivacidade',perfil.uid);
   return executarTransacao(async tx=>{
     const snap=await tx.get(ref),anterior=snap.exists()?snap.data():null;
     if(anterior&&podeAtender(anterior))throw new Error('Você já possui um pedido em andamento. Acompanhe a resposta no seu perfil.');
     if(anterior&&(anterior.alunoId!==perfil.uid||anterior.escola!==perfil.escola||anterior.status!=='concluida'))throw new Error('Seu pedido anterior precisa ser conferido pela equipe.');
-    const dados={alunoId:perfil.uid,alunoNome:perfil.nome,email:auth.currentUser.email,escola:perfil.escola,matricula:perfil.matricula,turma:perfil.turma,tipo:TIPO_SOLICITACAO_EXCLUSAO,status:'pendente',mensagem:mensagem.trim(),versaoPolitica:VERSAO_POLITICA_PRIVACIDADE,criadoEm:serverTimestamp(),atualizadoEm:serverTimestamp(),revisao:anterior?revisaoPedido(anterior)+1:1,ciclo:anterior?cicloPedido(anterior)+1:1,resposta:'',atendidoPorUid:'',atendidoPorNome:'',atendidoEm:null};
+    const dados={alunoId:perfil.uid,alunoNome:perfil.nome,email:auth.currentUser.email,escola:perfil.escola,matricula:perfil.matricula,turma:perfil.turma,tipo,status:'pendente',mensagem:mensagem.trim(),versaoPolitica:VERSAO_POLITICA_PRIVACIDADE,criadoEm:serverTimestamp(),atualizadoEm:serverTimestamp(),revisao:anterior?revisaoPedido(anterior)+1:1,ciclo:anterior?cicloPedido(anterior)+1:1,resposta:'',atendidoPorUid:'',atendidoPorNome:'',atendidoEm:null};
     escreverPedido(tx,ref,dados,perfil);return dados;
   });
 }

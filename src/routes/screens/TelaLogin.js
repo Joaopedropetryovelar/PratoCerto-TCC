@@ -2,7 +2,7 @@ import { VERSAO_APP } from '../../domain/versao';
 import React, { useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 import { Botao, Campo, Filtros, Pagina, ui } from '../../components/Interface';
-import { entrarConta } from '../../services/contas';
+import { entrarConta, reenviarVerificacao } from '../../services/contas';
 import { mensagemAuth } from '../../domain/contas';
 import { ESCOLAS } from '../../domain/escolas';
 export default function TelaLogin({ navigation, route }) {
@@ -13,8 +13,14 @@ export default function TelaLogin({ navigation, route }) {
     try {
       const { perfil, verificado } = await entrarConta({ email, senha, escola, apenasAdmin: route?.params?.cadastrarAdmin === true });
       setSenha('');
-      if (!verificado) navigation.reset({ index: 0, routes: [{ name: 'VerificarEmail', params: { cadastrarAdmin: route?.params?.cadastrarAdmin === true } }] });
-      else if (route?.params?.cadastrarAdmin) navigation.reset({ index: 1, routes: [{ name: 'HomeAdmin' }, { name: 'CadastroAdmin' }] });
+      if (!verificado) {
+        let emailEnviado;
+        if (perfil.tipoConta === 'admin') {
+          try { await reenviarVerificacao(); emailEnviado = true; } catch { emailEnviado = false; }
+        }
+        navigation.reset({ index: 0, routes: [{ name: 'VerificarEmail', params: { cadastrarAdmin: route?.params?.cadastrarAdmin === true, emailEnviado } }] });
+      }
+      else if (route?.params?.cadastrarAdmin) navigation.reset({ index: 0, routes: [{ name: 'HomeAdmin', params: { screen: 'CadastroAdmin' } }] });
       else navigation.reset({ index: 0, routes: [{ name: perfil.tipoConta === 'admin' ? 'HomeAdmin' : 'HomeAluno' }] });
     } catch (falha) { setErro(mensagemAuth(falha)); }
     finally { bloqueio.current = false; setOcupado(false); }

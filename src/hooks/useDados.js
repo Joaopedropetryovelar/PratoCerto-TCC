@@ -1,10 +1,14 @@
 import { escolaValida } from '../domain/escolas';
 import { useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import { useSessao } from './useSessao';
 import { auth, database, doc, onSnapshot } from '../services/backend';
 import { escutarConsulta } from '../services/consultas';
 import { mensagemDados } from '../domain/errosDados';
 
 export function useColecao(nome, filtros = [], habilitado = true) {
+  const focada = useIsFocused();
+  habilitado = habilitado && focada;
   const [dados, setDados] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState(null);
@@ -50,10 +54,11 @@ export function useDocumento(nome, id) {
 }
 
 export function usePerfil() {
-  const uid = auth.currentUser?.uid;
+  const sessao = useSessao();
+  const uid = sessao.usuario?.uid;
   const documento = useDocumento('usuarios', uid);
-  return { perfil: documento.dados, carregando: documento.carregando,
-    erro: documento.erro || (documento.dados && !['aluno','admin'].includes(documento.dados.tipoConta) ? 'Seu tipo de conta precisa ser conferido pela equipe.' : null) || (documento.dados && !escolaValida(documento.dados.escola) ? 'Seu perfil precisa de uma escola válida. Procure a equipe.' : null) || (!documento.carregando && !documento.dados ? 'Seu perfil não foi encontrado. Entre novamente.' : null), tentarNovamente: documento.tentarNovamente };
+  return { perfil: documento.dados, carregando: sessao.carregando || documento.carregando,
+    erro: documento.erro || (documento.dados?.acessoAtivo === false ? 'Seu acesso foi desativado pela direção.' : null) || (documento.dados && !['aluno','admin'].includes(documento.dados.tipoConta) ? 'Seu tipo de conta precisa ser conferido pela equipe.' : null) || (documento.dados && !escolaValida(documento.dados.escola) ? 'Seu perfil precisa de uma escola válida. Procure a equipe.' : null) || (!documento.carregando && !documento.dados ? 'Seu perfil não foi encontrado. Entre novamente.' : null), tentarNovamente: documento.tentarNovamente };
 }
 
 export function useColecaoEscola(nome, perfil, filtros = [], habilitado = true) {

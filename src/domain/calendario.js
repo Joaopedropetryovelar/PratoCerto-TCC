@@ -26,10 +26,32 @@ export function erroAvaliacao(refeicao, agora = new Date()) {
   if (agora > limite) return 'O prazo de avaliação terminou. Seu histórico está preservado.';
   return null;
 }
-export function gradeMes(valor) {
-  const data = parseData(valor); if (!data) throw new Error('Data inválida.');
-  const primeiro = new Date(data.getFullYear(), data.getMonth(), 1, 12);
-  const inicio = new Date(primeiro); inicio.setDate(1 - (primeiro.getDay() + 6) % 7);
-  return Array.from({ length: 42 }, (_, indice) => { const dia = new Date(inicio); dia.setDate(inicio.getDate() + indice); return { id: dataLocal(dia), numero: dia.getDate(), noMes: dia.getMonth() === data.getMonth(), util: ![0, 6].includes(dia.getDay()) }; });
+// Datas do calendário são dias civis. UTC evita deslocamento de coluna por fuso/DST.
+function dataCivilUTC(data) {
+  return `${String(data.getUTCFullYear()).padStart(4, '0')}-${String(data.getUTCMonth() + 1).padStart(2, '0')}-${String(data.getUTCDate()).padStart(2, '0')}`;
 }
-export function moverMes(valor, quantidade) { const data = parseData(valor); if (!data) throw new Error('Data inválida.'); return dataLocal(new Date(data.getFullYear(), data.getMonth() + quantidade, 1, 12)); }
+export function formatarDataCalendario(valor) {
+  if (!dataValida(valor)) return 'Selecionar data';
+  return valor.split('-').reverse().join('/');
+}
+export function tituloMesCalendario(valor) {
+  if (!dataValida(valor)) throw new Error('Data inválida.');
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const [ano, mes] = valor.split('-').map(Number);
+  return `${meses[mes - 1]} de ${ano}`;
+}
+export function gradeMes(valor) {
+  if (!dataValida(valor)) throw new Error('Data inválida.');
+  const [ano, mes] = valor.split('-').map(Number);
+  const primeiro = new Date(Date.UTC(ano, mes - 1, 1, 12));
+  const deslocamento = (primeiro.getUTCDay() + 6) % 7;
+  return Array.from({ length: 42 }, (_, indice) => {
+    const dia = new Date(Date.UTC(ano, mes - 1, 1 - deslocamento + indice, 12));
+    return { id: dataCivilUTC(dia), numero: dia.getUTCDate(), noMes: dia.getUTCMonth() === mes - 1, util: ![0, 6].includes(dia.getUTCDay()) };
+  });
+}
+export function moverMes(valor, quantidade) {
+  if (!dataValida(valor) || !Number.isInteger(quantidade)) throw new Error('Data inválida.');
+  const [ano, mes] = valor.split('-').map(Number);
+  return dataCivilUTC(new Date(Date.UTC(ano, mes - 1 + quantidade, 1, 12)));
+}

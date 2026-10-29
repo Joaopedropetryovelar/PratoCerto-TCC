@@ -1,3 +1,4 @@
+import { Alert } from '../../components/Alerta';
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Botao, Campo, Carregando, Filtros, Pagina, ui } from '../../components/Interface';
@@ -46,11 +47,18 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
   }, [idEdicao, selecionada, edicao]);
 
   function verCardapio() {
-    navigation.navigate('HomeAdmin', { screen: 'CardapioAdmin', params: { data, atualizadoEm: Date.now() } });
+    navigation.navigate('CardapioAdmin', { data, atualizadoEm: Date.now() });
   }
   function mudarTurno(v) {
     if (trava.current || idEdicao) return;
     setTurno(v); setLimite(HORARIOS_TURNO[v][0]); setFim(HORARIOS_TURNO[v][1]); setErro(null);
+  }
+  function confirmarPublicacao() {
+    if (edicao && (limite !== edicao.horarioLimite || fim !== edicao.horarioFim)) {
+      Alert.alert('Alterar horários da refeição?', `Confirmação: ${edicao.horarioLimite} → ${limite}. Término: ${edicao.horarioFim} → ${fim}. As respostas existentes serão mantidas. Um prazo futuro reabre as confirmações; alterar o término também muda o período de avaliação.`, [
+        { text: 'Cancelar', style: 'cancel' }, { text: 'Salvar horários', onPress: publicar },
+      ]);
+    } else publicar();
   }
   async function publicar() {
     if (trava.current) return;
@@ -114,7 +122,7 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
           {prazoPassou && !edicaoBloqueada ? <Text style={ui.erro}>O prazo informado já passou. Ajuste-o se os alunos ainda devem confirmar; com esse horário a confirmação ficará encerrada.</Text> : null}
         </View>
         {erro ? <Text accessibilityRole="alert" style={ui.erro}>{erro}</Text> : null}
-        <Botao testID="publicar-refeicao-dia" carregando={ocupado} disabled={edicaoBloqueada} onPress={publicar}>{idEdicao ? 'Salvar alterações da refeição' : 'Publicar refeição para os alunos'}</Botao>
+        <Botao testID="publicar-refeicao-dia" carregando={ocupado} disabled={edicaoBloqueada} onPress={confirmarPublicacao}>{idEdicao ? 'Salvar alterações da refeição' : 'Publicar refeição para os alunos'}</Botao>
       </>}
       <Botao secundario disabled={ocupado} onPress={verCardapio}>Ver cardápio por turno</Botao>
     </>}

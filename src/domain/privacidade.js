@@ -10,3 +10,5 @@ export function validarAtendimento(pedido,status,resposta){
   if(status==='concluida'&&resposta.trim().length<3)return 'Registre uma resposta ao aluno antes de concluir.';
   return null;
 }
+
+export const TIPOS_PEDIDO = [{id:'acesso_dados',nome:'Acesso ou cópia dos dados'},{id:'correcao_dados',nome:'Correção dos dados'},{id:'exclusao_dados',nome:'Exclusão da conta e dos dados'},{id:'anonimizacao_dados',nome:'Remover identificação das respostas'}];

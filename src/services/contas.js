@@ -13,6 +13,7 @@ export async function entrarConta({ email, senha, escola, apenasAdmin = false })
     const snap = await getDoc(doc(database, 'usuarios', user.uid));
     if (!snap.exists()) throw new Error('Sua conta ainda não possui um perfil. Procure a equipe para regularizar o cadastro.');
     const perfil = snap.data();
+    if (perfil.acessoAtivo === false) throw new Error('Seu acesso foi desativado pela direção.');
     if (perfil.escola !== escola) throw new Error('Esta conta não pertence à escola selecionada. Confira a escola e tente novamente.');
     if (!['aluno', 'admin'].includes(perfil.tipoConta) || (apenasAdmin && perfil.tipoConta !== 'admin')) throw new Error('Sua conta não tem permissão para esta área.');
     if (perfil.email !== user.email && user.emailVerified) await updateDoc(doc(database, 'usuarios', user.uid), { email: user.email });
@@ -27,7 +28,7 @@ export async function cadastrarAluno(dados) {
   try {
     usuario = (await createUserWithEmailAndPassword(auth, emailNormalizado(dados.email), dados.senha)).user;
     await updateProfile(usuario, { displayName: dados.nome.trim() });
-    const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), ...selecionada, turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
+    const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), ...selecionada, turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, cientePrivacidade: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
     const restricoes = prepararRestricoes(dados.restricoes, usuario.uid, dados.escola, serverTimestamp());
     await vincularMatricula(perfil,restricoes);
     perfilCriado = true;
@@ -97,4 +98,21 @@ export async function alterarTurma(turmaId) {
   if (!perfil.exists() || perfil.data().tipoConta !== 'aluno') throw new Error('Perfil de aluno indisponível.');
   const selecionada = await conferirTurma(perfil.data().escola, turmaId);
   await updateDoc(doc(database, 'usuarios', uid), selecionada);
+}
+
+export async function alterarTurnos(turnos) {
+  if (!Array.isArray(turnos) || !turnos.length || turnos.length > 3 || new Set(turnos).size !== turnos.length || turnos.some(t => !['manha','tarde','noite'].includes(t))) throw new Error('Escolha de um a três turnos válidos.');
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Entre novamente.');
+  await updateDoc(doc(database, 'usuarios', uid), { turnos, turno: turnos[0] });
+}
+
+export async function alterarDadosEscolares(turmaId, turnos) {
+  if (!Array.isArray(turnos) || !turnos.length || turnos.length > 3 || new Set(turnos).size !== turnos.length || turnos.some(t => !['manha','tarde','noite'].includes(t))) throw new Error('Escolha de um a três turnos válidos.');
+  const uid = auth.currentUser?.uid;
+  if (!uid) throw new Error('Entre novamente.');
+  const snap = await getDoc(doc(database, 'usuarios', uid));
+  if (!snap.exists() || snap.data().tipoConta !== 'aluno') throw new Error('Perfil de aluno indisponível.');
+  const turma = await conferirTurma(snap.data().escola, turmaId);
+  await updateDoc(doc(database, 'usuarios', uid), { ...turma, turnos, turno: turnos[0] });
 }

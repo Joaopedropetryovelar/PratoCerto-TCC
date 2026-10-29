@@ -1,6 +1,7 @@
 import React from 'react';
 import Svg, { Path, Circle } from 'react-native-svg';
 const desenhos = {
+  menu: 'M4 6h16M4 12h16M4 18h16',
   inicio: 'M3 10L12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
   cardapio: 'M4 3v6c0 2 4 2 4 0V3M6 3v18M19 3c-4 3-4 7 0 8V3m0 8v10',
   confirmar: 'M5 12l4 4L19 6',

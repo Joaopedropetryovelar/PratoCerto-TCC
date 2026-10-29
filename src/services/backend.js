@@ -11,6 +11,10 @@ const authReal = (instancia) => instancia === auth ? firebase().auth : instancia
 export function collection(_, nome) { return firestore.collection(firebase().database, nome); }
 export function doc(_, colecao, id) { return firestore.doc(firebase().database, colecao, id); }
 export const where = (...args) => firestore.where(...args);
+export const orderBy = (...args) => firestore.orderBy(...args);
+export const startAfter = (...args) => firestore.startAfter(...args);
+export const documentId = (...args) => firestore.documentId(...args);
+export function onAuthStateChanged(instancia, ...args) { return firebaseAuth.onAuthStateChanged(authReal(instancia), ...args); }
 export const limit = (...args) => firestore.limit(...args);
 export const query = (...args) => firestore.query(...args);
 export const onSnapshot = (...args) => firestore.onSnapshot(...args);
@@ -47,6 +51,19 @@ export function reautenticar(usuario, senha) { return firebaseAuth.reauthenticat
 export const verifyBeforeUpdateEmail = (...args) => firebaseAuth.verifyBeforeUpdateEmail(...args);
 export const updatePassword = (...args) => firebaseAuth.updatePassword(...args);
 export async function convidarAdministrador(dados) {
-  const { getFunctions, httpsCallable } = require('firebase/functions');
-  return (await httpsCallable(getFunctions(firebase().app, 'southamerica-east1'), 'convidarAdministrador')(dados)).data;
+  return chamarFuncao('convidarAdministrador', dados);
+}
+
+export async function chamarFuncao(nome, dados = {}) {
+  const { getFunctions, httpsCallable, connectFunctionsEmulator } = require('firebase/functions');
+  const funcoes = getFunctions(firebase().app, 'southamerica-east1');
+  if (process.env.EXPO_PUBLIC_USAR_EMULADORES === '1' && !funcoes.__pratoCertoLocal) {
+    connectFunctionsEmulator(funcoes, process.env.EXPO_PUBLIC_EMULADOR_HOST || '127.0.0.1', 5001);
+    funcoes.__pratoCertoLocal = true;
+  }
+  try { return (await httpsCallable(funcoes, nome, { timeout: 180000 })(dados)).data; }
+  catch (erro) {
+    if (erro.code === 'functions/not-found') throw new Error('A direção precisa publicar as funções atualizadas do aplicativo no Firebase.');
+    throw erro;
+  }
 }

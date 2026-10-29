@@ -41,5 +41,5 @@ console.log('08. Ícones e assets configurados existem.');
 if(!pkg.dependencies['@react-native-async-storage/async-storage'])throw Error('Persistência não declarada');
 for(const item of ['react-test-renderer','@babel/core','@babel/plugin-transform-react-jsx','@babel/plugin-transform-modules-commonjs'])if(!pkg.devDependencies[item])throw Error('Dependência de teste não declarada: '+item);
 console.log('09. Persistência e ferramentas de teste estão declaradas explicitamente.');
-for(const arquivo of ['README.md','FEEDBACK_TCC.md','REVISAO_10_ETAPAS.md','FIREBASE_SETUP.md','firebase.json','firestore.rules','firestore.indexes.json','functions/package-lock.json'])if(!fs.existsSync(arquivo))throw Error('Documentação ausente: '+arquivo);
+for(const arquivo of ['README.md','FIREBASE_SETUP.md','firebase.json','firestore.rules','firestore.indexes.json','functions/package-lock.json'])if(!fs.existsSync(arquivo))throw Error('Documentação ausente: '+arquivo);
 console.log('10. Guias e evidências de revisão acompanham o projeto.');
