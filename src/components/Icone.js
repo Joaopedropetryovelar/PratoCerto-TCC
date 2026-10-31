@@ -21,6 +21,21 @@ export default function Icone({ nome, tamanho = 24, cor = '#23624B' }) {
   const numero = Number(tamanho);
   const lado = Number.isFinite(numero) && numero > 0 ? numero : 24;
   const imagem = Object.hasOwn(icones, nome) ? icones[nome] : icones.cardapio;
-  return <Image source={imagem} resizeMode="contain" fadeDuration={0} accessible={false}
-    style={{ width: lado, height: lado, tintColor: cor, flexShrink: 0 }} />;
+  return (
+    <Image
+      source={imagem}
+      resizeMode="contain"
+      fadeDuration={0}
+      accessible={false}
+      style={criarEstiloDimensoes(lado, lado, cor)}
+    />
+  );
+}
+function criarEstiloDimensoes(largura, altura, valorTintColor) {
+  return {
+    width: largura,
+    height: altura,
+    tintColor: valorTintColor,
+    flexShrink: 0,
+  };
 }
