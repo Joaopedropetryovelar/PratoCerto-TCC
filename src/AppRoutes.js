@@ -16,6 +16,8 @@ import EscolhaCadastro from './routes/screens/EscolhaCadastro';
 import VerificarAdmin from './routes/screens/VerificarAdmin';
 import ConsentimentoNavigator from './routes/screens/ConsentimentoNavigator';
 import TelaHomeAluno from './routes/screens/TelaHomeAluno';
+import TelaCardapioAluno from './routes/screens/TelaCardapioAluno';
+import TelaMinhasRefeicoes from './routes/screens/TelaMinhasRefeicoes';
 import TelaDeConfirmacao from './routes/screens/TelaDeConfirmacao';
 import TelaFeedbackAluno from './routes/screens/TelaFeedbackAluno';
 import TelaPerfilAluno from './routes/screens/TelaPerfilAluno';
@@ -41,9 +43,10 @@ const AbasAluno = createBottomTabNavigator();
 
 function MenuAluno({ navigation }) {
   return <AreaProtegida tipoConta="aluno" navigation={navigation}>
-    <AbasAluno.Navigator initialRouteName="Cardapio" screenOptions={opcoesAluno}>
-      <AbasAluno.Screen name="Cardapio" component={TelaHomeAluno} options={{ title: 'Cardápio', tabBarIcon: ({ color }) => <Icone nome="inicio" cor={color} /> }} />
-      <AbasAluno.Screen name="Feedback" component={TelaFeedbackAluno} options={{ title: 'Avaliações', tabBarIcon: ({ color }) => <Icone nome="feedback" cor={color} /> }} />
+    <AbasAluno.Navigator initialRouteName="InicioAluno" backBehavior="initialRoute" screenOptions={opcoesAluno}>
+      <AbasAluno.Screen name="InicioAluno" component={TelaHomeAluno} options={{ title: 'Início', tabBarIcon: ({ color }) => <Icone nome="inicio" cor={color} /> }} />
+      <AbasAluno.Screen name="Cardapio" component={TelaCardapioAluno} options={{ title: 'Cardápio', tabBarIcon: ({ color }) => <Icone nome="calendario" cor={color} /> }} />
+      <AbasAluno.Screen name="MinhasRefeicoes" component={TelaMinhasRefeicoes} options={{ title: 'Minhas refeições', tabBarIcon: ({ color }) => <Icone nome="cardapio" cor={color} /> }} />
       <AbasAluno.Screen name="PerfilAluno" component={TelaPerfilAluno} options={{ title: 'Perfil', tabBarIcon: ({ color }) => <Icone nome="perfil" cor={color} /> }} />
     </AbasAluno.Navigator>
   </AreaProtegida>;
@@ -97,6 +100,7 @@ export default function AppRoutes() {
     <Principal.Screen name="VerificarAdmin" component={VerificarAdmin} />
     <Principal.Screen name="Consentimento" component={ConsentimentoNavigator} />
     <Principal.Screen name="Confirmacao">{props => <AreaProtegida tipoConta="aluno" navigation={props.navigation}><TelaDeConfirmacao {...props} /></AreaProtegida>}</Principal.Screen>
+    <Principal.Screen name="Feedback" options={{ headerShown: true, title: 'Avaliação', headerTintColor: '#173F32' }}>{props => <AreaProtegida tipoConta="aluno" navigation={props.navigation}><ContextoCabecalho.Provider value={true}><TelaFeedbackAluno {...props} /></ContextoCabecalho.Provider></AreaProtegida>}</Principal.Screen>
     <Principal.Screen name="HomeAluno" component={MenuAluno} />
     <Principal.Screen name="HomeAdmin" component={MenuEquipe} />
   </Principal.Navigator>;
@@ -104,7 +108,7 @@ export default function AppRoutes() {
 
 const estilos = StyleSheet.create({
   abrirMenu: { minHeight: 48, minWidth: 48, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  barraAluno: { backgroundColor: '#FFFFFF', borderTopColor: '#DDE5DF', borderTopWidth: 1, paddingTop: 8, minHeight: 76 },
+  barraAluno: { backgroundColor: '#FFFFFF', borderTopColor: '#E5EDE7', borderTopWidth: 1, paddingTop: 8, minHeight: 76, elevation: 6 },
 });
 const opcoesAluno = {
   headerShown: false, tabBarActiveTintColor: '#23624B', tabBarInactiveTintColor: '#6A7D73',

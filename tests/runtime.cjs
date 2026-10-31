@@ -16,7 +16,7 @@ function criarRuntime(opcoes = {}) {
     Alert: { alert: (...args) => alertas.push(args) },
     Share: { share: async (valor) => { compartilhamentos.push(valor); return { action: 'sharedAction' }; } },
     BackHandler: { addEventListener: () => ({ remove() {} }) },
-    StatusBar: 'StatusBar', SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ActivityIndicator: 'ActivityIndicator', TextInput: 'TextInput', Modal: 'Modal', KeyboardAvoidingView: 'KeyboardAvoidingView', Switch: 'Switch',
+    Keyboard: { dismiss() {} }, Image: 'Image', StatusBar: 'StatusBar', SafeAreaView: 'SafeAreaView', ScrollView: 'ScrollView', View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity', ActivityIndicator: 'ActivityIndicator', TextInput: 'TextInput', Modal: 'Modal', KeyboardAvoidingView: 'KeyboardAvoidingView', Switch: 'Switch',
   };
   function carregar(arquivo) {
     const completo = path.resolve(__dirname, '..', arquivo);
@@ -27,7 +27,8 @@ function criarRuntime(opcoes = {}) {
     modulo.paths = module.paths;
     modulo.require = (nome) => {
       if (nome === 'react') return React;
-      if (nome === 'react-native-svg') return {__esModule: true, default: 'Svg', Path: 'Path', Circle: 'Circle'};
+      if (/\.(png|jpe?g|webp)$/.test(nome)) return { uri: nome };
+      if (nome === 'react-native-svg') return {__esModule: true, default: 'Svg', Path: 'Path', Circle: 'Circle', Ellipse: 'Ellipse'};
       if (nome === 'react-native') return native;
       if (opcoes.modulos && Object.hasOwn(opcoes.modulos, nome)) return opcoes.modulos[nome];
       if (nome === 'react-native-safe-area-context') return { SafeAreaView: 'SafeAreaView', SafeAreaProvider: 'SafeAreaProvider' };

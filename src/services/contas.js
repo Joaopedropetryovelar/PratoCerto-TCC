@@ -26,30 +26,35 @@ export async function cadastrarAluno(dados) {
   const selecionada = await conferirTurma(dados.escola, dados.turmaId);
   let usuario, perfilCriado = false;
   try {
-    usuario = (await createUserWithEmailAndPassword(auth, emailNormalizado(dados.email), dados.senha)).user;
-    await updateProfile(usuario, { displayName: dados.nome.trim() });
-    const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), ...selecionada, turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, cientePrivacidade: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
-    const restricoes = prepararRestricoes(dados.restricoes, usuario.uid, dados.escola, serverTimestamp());
-    await vincularMatricula(perfil,restricoes);
-    perfilCriado = true;
-  } catch (erro) {
-    if (usuario && !perfilCriado) {
-      let salvo;
-      try { salvo=await getDocFromServer(doc(database,'usuarios',usuario.uid)); }
-      catch { throw new Error('Não foi possível confirmar se o cadastro foi concluído. Sua conta foi preservada. Confira a conexão e procure a equipe antes de criar outra conta.'); }
-      if(salvo.exists()) {
-        const perfil=salvo.data();
-        if(perfil.uid!==usuario.uid||perfil.escola!==dados.escola||perfil.matricula!==String(dados.matricula).trim()||perfil.email!==emailNormalizado(dados.email))throw new Error('Sua conta precisa ser conferida pela equipe. Nenhum cadastro existente foi removido.');
-        perfilCriado=true;
-      } else {
-        try { await deleteUser(usuario); }
-        catch { await signOut(auth); throw new Error('O cadastro ficou incompleto e não foi possível desfazer a conta. Procure a equipe antes de tentar novamente.'); }
+    try {
+      usuario = (await createUserWithEmailAndPassword(auth, emailNormalizado(dados.email), dados.senha)).user;
+      await updateProfile(usuario, { displayName: dados.nome.trim() });
+      const perfil = { uid: usuario.uid, nome: dados.nome.trim(), matricula: dados.matricula.trim(), ...selecionada, turnos: dados.turnos, turno: dados.turnos[0], escola: dados.escola, email: emailNormalizado(dados.email), tipoConta: 'aluno', aceitouTermos: true, cientePrivacidade: true, versaoTermos: VERSAO_TERMOS, dataConsentimento: serverTimestamp(), dataCadastro: serverTimestamp() };
+      const restricoes = prepararRestricoes(dados.restricoes, usuario.uid, dados.escola, serverTimestamp());
+      await vincularMatricula(perfil,restricoes);
+      perfilCriado = true;
+    } catch (erro) {
+      if (usuario && !perfilCriado) {
+        let salvo;
+        try { salvo=await getDocFromServer(doc(database,'usuarios',usuario.uid)); }
+        catch { throw new Error('Não foi possível confirmar se o cadastro foi concluído. Sua conta foi preservada. Confira a conexão e procure a equipe antes de criar outra conta.'); }
+        if(salvo.exists()) {
+          const perfil=salvo.data();
+          if(perfil.uid!==usuario.uid||perfil.escola!==dados.escola||perfil.matricula!==String(dados.matricula).trim()||perfil.email!==emailNormalizado(dados.email))throw new Error('Sua conta precisa ser conferida pela equipe. Nenhum cadastro existente foi removido.');
+          perfilCriado=true;
+        } else {
+          try { await deleteUser(usuario); }
+          catch { await signOut(auth); throw new Error('O cadastro ficou incompleto e não foi possível desfazer a conta. Procure a equipe antes de tentar novamente.'); }
+        }
       }
+      if(!perfilCriado)throw erro;
     }
-    if(!perfilCriado)throw erro;
+    try { await sendEmailVerification(usuario); return { emailEnviado: true }; }
+    catch { return { emailEnviado: false }; }
+  } finally {
+    // Criar uma conta no Firebase também abre uma sessão; o aluno fará login depois.
+    if (usuario && auth.currentUser?.uid === usuario.uid) await signOut(auth);
   }
-  try { await sendEmailVerification(usuario); return { emailEnviado: true }; }
-  catch { return { emailEnviado: false }; }
 }
 export async function reenviarVerificacao() {
   const usuario = auth.currentUser;

@@ -43,8 +43,8 @@ export default function TelaDeConfirmacao({ navigation, route }) {
       <Botao testID="confirmar-sim" selecionado={resposta.dados?.vaiConsumir === true} onPress={() => salvar(true)} disabled={Boolean(impedimento) || salvando}>{resposta.dados?.vaiConsumir === true ? 'Vou comer · selecionado' : 'Vou comer'}</Botao>
       <Botao testID="confirmar-nao" selecionado={resposta.dados?.vaiConsumir === false} secundario onPress={() => salvar(false)} disabled={Boolean(impedimento) || salvando}>{resposta.dados?.vaiConsumir === false ? 'Não vou comer · selecionado' : 'Não vou comer'}</Botao>
       {salvando ? <Carregando /> : null}
-      {!erroAvaliacao(refeicao, agora) ? <Botao secundario onPress={() => navigation.navigate('HomeAluno', {screen:'Feedback',params:{refeicao}})}>Avaliar esta refeição</Botao> : <Text style={ui.pequeno}>{erroAvaliacao(refeicao, agora)}</Text>}
+      {!erroAvaliacao(refeicao, agora) ? <Botao secundario onPress={() => navigation.navigate('Feedback', {refeicao})}>Avaliar esta refeição</Botao> : <Text style={ui.pequeno}>{erroAvaliacao(refeicao, agora)}</Text>}
     </>}
-    <Botao secundario onPress={() => navigation.goBack()}>Voltar ao cardápio</Botao>
+    <Botao secundario onPress={() => navigation.goBack()}>Voltar</Botao>
   </Pagina>;
 }

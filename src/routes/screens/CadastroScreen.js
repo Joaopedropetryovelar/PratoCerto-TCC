@@ -25,7 +25,7 @@ export default function CadastroScreen({ navigation }) {
     try {
       const resultado = await cadastrarAluno(dados);
       mudar('senha', ''); mudar('confirmarSenha', '');
-      (navigation.getParent() || navigation).reset({ index: 0, routes: [{ name: 'VerificarEmail', params: resultado }] });
+      (navigation.getParent() || navigation).reset({ index: 0, routes: [{ name: 'Login', params: { cadastroConcluido: true, emailEnviado: resultado.emailEnviado, email: dados.email.trim().toLowerCase(), escola: dados.escola } }] });
     } catch (e) { setErro(mensagemAuth(e)); }
     finally { trava.current = false; setOcupado(false); }
   }
@@ -36,7 +36,7 @@ export default function CadastroScreen({ navigation }) {
         <Filtros vertical label="Escola" opcoes={ESCOLAS.map(id => ({ id, nome: id }))} valor={dados.escola} onChange={escola => setDados(d => ({ ...d, escola, turma: '', turmaId: '' }))} />
         {erros.escola ? <Text style={ui.erro}>{erros.escola}</Text> : null}
         <Campo testID="matricula" label="Matrícula" value={dados.matricula} onChangeText={v => mudar('matricula',v)} maxLength={5} keyboardType="number-pad" ajuda="Cinco números. A matrícula deve estar autorizada pela direção." erro={erros.matricula} />
-        <ListaTurmas escola={dados.escola} valor={dados.turmaId} erro={erros.turma} onChange={t => setDados(d => ({ ...d, turma: t.nome, turmaId: t.id }))} />
+        <ListaTurmas escola={dados.escola} valor={dados.turmaId} erro={erros.turma} disabled={ocupado} onChange={t => { setDados(d => ({ ...d, turma: t.nome, turmaId: t.id })); setErros(e => ({ ...e, turma: undefined })); }} />
         <TurnosEscolha value={dados.turnos} onChange={v => mudar('turnos', v)} />{erros.turnos ? <Text style={ui.erro}>{erros.turnos}</Text> : null}
       </> : <>
         <Campo label="E-mail" value={dados.email} onChangeText={v => mudar('email',v)} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} editable={!ocupado} erro={erros.email} ajuda="Use um endereço que você consegue acessar. Se a escola vinculou um e-mail à matrícula, use esse endereço." />
@@ -51,7 +51,7 @@ export default function CadastroScreen({ navigation }) {
       </View>)}
       <Text style={ui.pequeno}>Restrições alimentares são opcionais e podem ser informadas depois, no perfil, com autorização específica.</Text>
       {erro ? <Text accessibilityRole="alert" style={ui.erro}>{erro}</Text> : null}
-      <Botao testID="cadastrar-aluno" carregando={ocupado} onPress={cadastrar}>Criar conta e verificar e-mail</Botao>
+      <Botao testID="cadastrar-aluno" carregando={ocupado} onPress={cadastrar}>Criar conta</Botao>
     </> : <Botao testID="continuar-cadastro" onPress={continuar}>Continuar</Botao>}
     <Botao secundario disabled={ocupado} onPress={() => etapa === 2 ? setEtapa(1) : navigation.goBack()}>Voltar</Botao>
     <Text style={ui.pequeno}>Versão {VERSAO_APP}</Text>
