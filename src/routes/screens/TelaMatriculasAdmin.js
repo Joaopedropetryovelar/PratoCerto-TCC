@@ -7,6 +7,7 @@ import {
   autorizarMatricula,
   autorizarMatriculasEmLote,
   desativarAutorizacao,
+  editarMatricula,
 } from '../../services/matriculas';
 import { analisarListaMatriculas } from '../../domain/matriculas';
 import { mensagemAuth } from '../../domain/contas';
@@ -25,7 +26,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
     lista = useColecaoEscola('matriculasAutorizadas', perfil.perfil, [], habilitado);
   const [modo, setModo] = useState('lote'),
     [matricula, setMatricula] = useState(''),
-    [editor, setEditor] = useState(null),
+    [matriculaEmEdicao, setMatriculaEmEdicao] = useState(null),
     [email, setEmail] = useState('');
   const [entrada, setEntrada] = useState(''),
     [previa, setPrevia] = useState(null),
@@ -37,7 +38,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
     [ocupado, setOcupado] = useState(false);
   const trava = useRef(false);
   function limpar() {
-    setEditor(null);
+    setMatriculaEmEdicao(null);
     setMatricula('');
     setEmail('');
   }
@@ -253,7 +254,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
           ) : (
             <View style={ui.card}>
               <Text style={ui.secao}>
-                {editor ? 'Editar autorização' : 'Autorizar uma matrícula'}
+                {matriculaEmEdicao ? 'Editar matrícula' : 'Autorizar uma matrícula'}
               </Text>
               <Campo
                 label="Matrícula"
@@ -262,7 +263,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
                 onChangeText={setMatricula}
                 maxLength={5}
                 keyboardType="number-pad"
-                editable={!ocupado && !editor}
+                editable={!ocupado}
                 ajuda="Cinco números, preservando os zeros à esquerda."
               />
               <Campo
@@ -271,8 +272,12 @@ export default function TelaMatriculasAdmin({ navigation }) {
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
-                editable={!ocupado}
-                ajuda="Se preenchido, apenas esse e-mail poderá usar a matrícula."
+                editable={!ocupado && !matriculaEmEdicao?.alunoId}
+                ajuda={
+                  matriculaEmEdicao?.alunoId
+                    ? 'O e-mail da conta é alterado pelo próprio aluno no perfil.'
+                    : 'Se preenchido, apenas esse e-mail poderá usar a matrícula.'
+                }
               />
               <Text style={ui.pequeno}>
                 O aluno informará o próprio e-mail e a senha ao criar a conta. Cada matrícula só
@@ -283,11 +288,23 @@ export default function TelaMatriculasAdmin({ navigation }) {
                 carregando={ocupado}
                 onPress={() =>
                   executar(async () => {
-                    const resultadoAutorizacao = await autorizarMatricula({
-                      matricula,
-                      email,
-                      revisaoEsperada: editor?.revisao || 0,
-                    });
+                    if (matriculaEmEdicao) {
+                      await editarMatricula({
+                        matriculaAtual: matriculaEmEdicao.matricula,
+                        novaMatricula: matricula.trim(),
+                        revisaoEsperada: matriculaEmEdicao.revisao || 0,
+                        ...(matriculaEmEdicao.alunoId ? {} : { email }),
+                      });
+                      setBusca(matricula.trim());
+                      setSituacao('todas');
+                      limpar();
+                      Alert.alert(
+                        'Matrícula atualizada',
+                        'O número foi corrigido. A conta e o histórico do aluno foram preservados.',
+                      );
+                      return;
+                    }
+                    const resultadoAutorizacao = await autorizarMatricula({ matricula, email });
                     limpar();
                     Alert.alert(
                       resultadoAutorizacao.alunoId
@@ -300,9 +317,9 @@ export default function TelaMatriculasAdmin({ navigation }) {
                   })
                 }
               >
-                {editor ? 'Salvar autorização' : 'Autorizar cadastro'}
+                {matriculaEmEdicao ? 'Salvar matrícula' : 'Autorizar cadastro'}
               </Botao>
-              {editor ? (
+              {matriculaEmEdicao ? (
                 <Botao secundario disabled={ocupado} onPress={limpar}>
                   Cancelar edição
                 </Botao>
@@ -363,6 +380,20 @@ export default function TelaMatriculasAdmin({ navigation }) {
                         ? 'Autorizada para cadastro'
                         : 'Autorização inativa'}
                   </Text>
+                  <Botao
+                    testID={`editar-matricula-${matriculaAutorizada.id}`}
+                    secundario
+                    disabled={ocupado}
+                    onPress={() => {
+                      setModo('individual');
+                      setMatriculaEmEdicao(matriculaAutorizada);
+                      setMatricula(matriculaAutorizada.matricula);
+                      setEmail(matriculaAutorizada.email || '');
+                      setErro(null);
+                    }}
+                  >
+                    Editar matrícula
+                  </Botao>
                   {!matriculaAutorizada.alunoId ? (
                     <>
                       <Text style={ui.pequeno}>
@@ -371,19 +402,6 @@ export default function TelaMatriculasAdmin({ navigation }) {
                           : 'Sem exigência de e-mail pré-cadastrado.'}
                       </Text>
                       <View style={ui.linha}>
-                        <Botao
-                          secundario
-                          disabled={ocupado}
-                          onPress={() => {
-                            setModo('individual');
-                            setEditor(matriculaAutorizada);
-                            setMatricula(matriculaAutorizada.matricula);
-                            setEmail(matriculaAutorizada.email || '');
-                            setErro(null);
-                          }}
-                        >
-                          Editar ou reativar
-                        </Botao>
                         {matriculaAutorizada.ativa ? (
                           <Botao
                             secundario
@@ -418,8 +436,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
                     </>
                   ) : (
                     <Text style={ui.pequeno}>
-                      A conta existente foi preservada. Esta tela não transfere matrículas entre
-                      contas.
+                      A correção do número mantém a mesma conta, as confirmações e as avaliações.
                     </Text>
                   )}
                 </View>

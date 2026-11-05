@@ -138,6 +138,9 @@ export async function salvarRefeicao({
       transacao.get(pratoRef),
       transacao.get(refeicaoRef),
     ]);
+    // Criar a partir do catálogo sempre usa um registro novo, separado do histórico de produção.
+    if (!identificador && existente.exists())
+      throw new Error('Não foi possível criar uma nova refeição. Tente novamente.');
     if (identificador && !existente.exists())
       throw new Error('A refeição foi removida. Recarregue.');
     if (catalogo.exists() && catalogo.data().escola !== perfil.escola)

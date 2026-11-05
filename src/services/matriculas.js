@@ -10,6 +10,7 @@ import {
   limit,
   executarTransacao,
   serverTimestamp,
+  chamarFuncao,
 } from './backend';
 import { emailNormalizado, emailValido } from '../domain/contas';
 import { analisarListaMatriculas, chaveMatricula, revisaoMatricula } from '../domain/matriculas';
@@ -109,6 +110,17 @@ export async function autorizarMatricula({ matricula, revisaoEsperada = 0, email
   if (vinculo && !emailValido(vinculo))
     throw new Error('Informe um e-mail válido ou deixe o vínculo vazio.');
   return autorizar(await equipe(), String(matricula).trim(), revisaoEsperada, false, vinculo);
+}
+export async function editarMatricula({ matriculaAtual, novaMatricula, revisaoEsperada, email }) {
+  const perfil = await equipe();
+  chaveMatricula(perfil.escola, matriculaAtual);
+  chaveMatricula(perfil.escola, novaMatricula);
+  return chamarFuncao('editarMatricula', {
+    matriculaAtual,
+    novaMatricula,
+    revisaoEsperada,
+    ...(email === undefined ? {} : { email: emailNormalizado(email) }),
+  });
 }
 export async function autorizarMatriculasEmLote(texto, aoProgredir = () => {}) {
   const lista = analisarListaMatriculas(texto);

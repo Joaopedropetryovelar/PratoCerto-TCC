@@ -19,15 +19,16 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
     perfil = usePerfil();
   const dataPadrao = [0, 6].includes(parseData(hoje).getDay()) ? proximoDiaUtil(hoje) : hoje;
   const idEdicao = route?.params?.refeicaoId || null;
+  const pratoIdInicial = typeof route?.params?.pratoId === 'string' ? route.params.pratoId : '';
   const dataInicial = dataValida(route?.params?.data) ? route.params.data : dataPadrao;
   const turnoInicial = HORARIOS_TURNO[route?.params?.turno] ? route.params.turno : 'manha';
   const [data, setData] = useState(dataInicial),
     [turno, setTurno] = useState(turnoInicial);
-  const [modo, setModo] = useState('novo'),
+  const [modo, setModo] = useState(pratoIdInicial ? 'catalogo' : 'novo'),
     [edicao, setEdicao] = useState(null);
   const [nome, setNome] = useState(''),
     [descricao, setDescricao] = useState(''),
-    [pratoId, setPratoId] = useState(''),
+    [pratoId, setPratoId] = useState(pratoIdInicial),
     [busca, setBusca] = useState('');
   const [limite, setLimite] = useState(HORARIOS_TURNO[turnoInicial][0]),
     [fim, setFim] = useState(HORARIOS_TURNO[turnoInicial][1]);
@@ -71,13 +72,13 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
     setPublicada(null);
     setNome('');
     setDescricao('');
-    setPratoId('');
+    setPratoId(pratoIdInicial);
     setBusca('');
-    setModo('novo');
+    setModo(pratoIdInicial ? 'catalogo' : 'novo');
     setErro(null);
     setLimite(HORARIOS_TURNO[turnoInicial][0]);
     setFim(HORARIOS_TURNO[turnoInicial][1]);
-  }, [idEdicao, dataInicial, turnoInicial]);
+  }, [idEdicao, dataInicial, turnoInicial, pratoIdInicial]);
   useEffect(() => {
     if (!idEdicao || edicao?.id === idEdicao || !selecionada) return;
     // Mantém a revisão carregada ao abrir a edição para detectar alterações concorrentes.
@@ -135,7 +136,8 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
         throw new Error(
           'Já existe uma refeição neste dia e turno. Edite ou exclua a refeição existente pelo cardápio.',
         );
-      if (idEdicao && !edicao) throw new Error('Recarregue a refeição antes de editar.');
+      if (idEdicao && edicao?.id !== idEdicao)
+        throw new Error('Recarregue a refeição antes de editar.');
       let alimento;
       if (modo === 'catalogo') {
         if (!pratoId) throw new Error('Escolha um prato do catálogo.');
@@ -164,8 +166,8 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
         ...alimento,
         horarioLimite: limite,
         horarioFim: fim,
-        id: edicao?.id,
-        revisaoEsperada: edicao?.revisao || 0,
+        id: idEdicao || undefined,
+        revisaoEsperada: idEdicao ? edicao.revisao || 0 : 0,
       });
       setPublicada(refeicao);
     } catch (erroCapturado) {
@@ -335,6 +337,11 @@ export default function TelaRefeicaoDiaAdmin({ navigation, route }) {
                 </View>
               ) : (
                 <View style={ui.card}>
+                  <Text style={ui.pequeno}>
+                    {idEdicao
+                      ? 'O catálogo atualiza o nome e a descrição desta refeição. O histórico deste dia é preservado.'
+                      : 'O catálogo reutiliza o nome e a descrição. Uma nova refeição começa sem quantidades servidas, sobras, confirmações ou avaliações.'}
+                  </Text>
                   <Campo
                     label="Buscar no catálogo"
                     value={busca}

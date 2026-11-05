@@ -178,6 +178,18 @@ export function kg(gramas, casas = 3) {
     maximumFractionDigits: casas,
   });
 }
+export function registroDaRefeicao(registros, refeicao) {
+  if (!refeicao?.id || !refeicao.escola || !dataValida(refeicao.data)) return null;
+  return (
+    registros.find(
+      (registro) =>
+        registro.refeicaoId === refeicao.id &&
+        registro.escola === refeicao.escola &&
+        registro.data === refeicao.data &&
+        registro.turno === refeicao.turno,
+    ) || null
+  );
+}
 export function formularioDoRegistro(registro) {
   if (!registro)
     return {

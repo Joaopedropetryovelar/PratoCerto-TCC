@@ -136,11 +136,32 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
       .filter(
         (aluno) =>
           aluno.tipoConta === 'aluno' &&
+          Boolean(aluno.uid || aluno.id) &&
           (turno === 'todos' || turnosDoPerfil(aluno).includes(turno)),
       )
       .map((aluno) => [aluno.uid || aluno.id, aluno]),
   );
-  const porAluno = new Map(registros.map((item) => [item.alunoId, item]));
+  const porAluno = new Map();
+  function horarioDeclaracao(registro) {
+    const horario = registro.atualizadoEm;
+    if (typeof horario?.toMillis === 'function') return horario.toMillis();
+    if (horario instanceof Date) return horario.getTime();
+    if (typeof horario === 'number') return horario;
+    return Number(horario?.seconds || 0) * 1000 + Number(horario?.nanoseconds || 0) / 1000000;
+  }
+  for (const registro of registros) {
+    const aluno = elegiveis.get(registro.alunoId);
+    if (!aluno || registro.escola !== aluno.escola) continue;
+    const anterior = porAluno.get(registro.alunoId);
+    if (
+      !anterior ||
+      horarioDeclaracao(registro) > horarioDeclaracao(anterior) ||
+      (horarioDeclaracao(registro) === horarioDeclaracao(anterior) &&
+        registro.id === registro.alunoId)
+    ) {
+      porAluno.set(registro.alunoId, registro);
+    }
+  }
   const frequencias = new Map(OPCOES_RESTRICOES.map((item) => [item.id, 0]));
   const impacto = {
     porcoesAtencao: 0,
@@ -151,7 +172,9 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
   };
   let comRestricoes = 0,
     semRestricoes = 0,
-    naoInformado = 0;
+    naoInformado = 0,
+    totalRestricoes = 0,
+    alunosComMultiplasRestricoes = 0;
   for (const [identificadorUsuario, aluno] of elegiveis) {
     const declaracaoRestricao = porAluno.get(identificadorUsuario);
     const reconhecidas =
@@ -180,6 +203,8 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
     comRestricoes += 1;
     impacto.porcoesAtencao += 1;
     const itens = new Set(declaracaoRestricao.itens);
+    totalRestricoes += itens.size;
+    if (itens.size > 1) alunosComMultiplasRestricoes += 1;
     if (['intolerancia_lactose', 'alergia_leite'].some((identificador) => itens.has(identificador)))
       impacto.semLeiteOuLactose += 1;
     if (['restricao_gluten', 'alergia_trigo'].some((identificador) => itens.has(identificador)))
@@ -196,6 +221,8 @@ export function estatisticasRestricoes(alunos, registros, turno = 'todos') {
   return {
     total,
     comRestricoes,
+    totalRestricoes,
+    alunosComMultiplasRestricoes,
     semRestricoes,
     naoInformado,
     informados: comRestricoes + semRestricoes,

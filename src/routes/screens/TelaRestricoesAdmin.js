@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Text, View, StyleSheet } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import {
   Botao,
   Carregando,
@@ -9,243 +9,114 @@ import {
   Pagina,
   ui,
 } from '../../components/Interface';
-import Calendario from '../../components/Calendario';
 import { useColecaoEscola, usePerfil } from '../../hooks/useDados';
-import { useAgora } from '../../hooks/useAgora';
-import { dataDaEscola } from '../../domain/refeicoes';
 import { TURNOS_ALUNO } from '../../domain/escolas';
-import { estatisticasRestricoes, planejarRestricoesDaRefeicao } from '../../domain/restricoes';
-export default function TelaRestricoesAdmin({ navigation, route }) {
-  const agora = useAgora();
-  const perfil = usePerfil(),
-    [escopo, setEscopo] = useState('refeicao'),
-    [turno, setTurno] = useState(route?.params?.turno || 'manha'),
-    [data, setData] = useState(route?.params?.data || dataDaEscola(agora)),
-    [refeicaoId, setRefeicaoId] = useState(route?.params?.refeicaoId || '');
-  const habilitado = perfil.perfil?.tipoConta === 'admin';
-  const alunos = useColecaoEscola(
-      'usuarios',
-      perfil.perfil,
-      [['tipoConta', '==', 'aluno']],
-      habilitado,
-    ),
-    restricoes = useColecaoEscola('restricoesAlimentares', perfil.perfil, [], habilitado);
-  const pratos = useColecaoEscola(
-      'NomePratos',
-      perfil.perfil,
-      [['data', '==', data]],
-      habilitado && escopo === 'refeicao',
-    ),
-    confirmacoes = useColecaoEscola(
-      'confirmacoes',
-      perfil.perfil,
-      [['data', '==', data]],
-      habilitado && escopo === 'refeicao',
-    );
-  const fontes = [
-    perfil,
-    alunos,
-    restricoes,
-    ...(escopo === 'refeicao' ? [pratos, confirmacoes] : []),
-  ];
-  const refeicoes = pratos.dados
-    .filter((refeicaoDaLista) => refeicaoDaLista.turno === turno)
-    .sort(
-      (primeiroRegistro, segundoRegistro) =>
-        Number(segundoRegistro.ativo !== false) - Number(primeiroRegistro.ativo !== false) ||
-        primeiroRegistro.id.localeCompare(segundoRegistro.id),
-    );
-  const refeicao =
-    refeicoes.find((refeicaoDaLista) => refeicaoDaLista.id === refeicaoId) || refeicoes[0] || null;
-  const resumo =
-    escopo === 'refeicao'
-      ? planejarRestricoesDaRefeicao(refeicao, alunos.dados, restricoes.dados, confirmacoes.dados)
-      : estatisticasRestricoes(alunos.dados, restricoes.dados, turno);
-  function mudarEscopo(novoValor) {
-    setEscopo(novoValor);
-    if (novoValor === 'refeicao' && turno === 'todos') setTurno('manha');
-  }
+import { estatisticasRestricoes } from '../../domain/restricoes';
+
+export default function TelaRestricoesAdmin({ navigation }) {
+  const dadosPerfil = usePerfil();
+  const [turnoSelecionado, setTurnoSelecionado] = useState('todos');
+  const administradorAutorizado = dadosPerfil.perfil?.tipoConta === 'admin';
+  const alunosCadastrados = useColecaoEscola(
+    'usuarios',
+    dadosPerfil.perfil,
+    [['tipoConta', '==', 'aluno']],
+    administradorAutorizado,
+  );
+  const declaracoesRestricoes = useColecaoEscola(
+    'restricoesAlimentares',
+    dadosPerfil.perfil,
+    [],
+    administradorAutorizado,
+  );
+  const fontesDados = [dadosPerfil, alunosCadastrados, declaracoesRestricoes];
+  const estatisticas = estatisticasRestricoes(
+    alunosCadastrados.dados.filter((aluno) => aluno.escola === dadosPerfil.perfil?.escola),
+    declaracoesRestricoes.dados,
+    turnoSelecionado,
+  );
+
   return (
     <Pagina
       titulo="Restrições alimentares"
-      subtitulo={`${perfil.perfil?.escola || 'Sua escola'} · Consulte os cadastros ou planeje uma refeição.`}
+      subtitulo={`${dadosPerfil.perfil?.escola || 'Sua escola'} · Alunos cadastrados na escola.`}
     >
       <Filtros
-        label="Visão"
-        opcoes={[
-          {
-            id: 'refeicao',
-            nome: 'Por refeição',
-          },
-          {
-            id: 'cadastro',
-            nome: 'Cadastros da escola',
-          },
-        ]}
-        valor={escopo}
-        onChange={mudarEscopo}
+        label="Turno dos alunos"
+        opcoes={[{ id: 'todos', nome: 'Todos' }, ...TURNOS_ALUNO]}
+        valor={turnoSelecionado}
+        onChange={setTurnoSelecionado}
       />
-      {escopo === 'refeicao' ? (
-        <Calendario
-          label="Dia da refeição"
-          value={data}
-          onChange={(novoValor) => {
-            setData(novoValor);
-            setRefeicaoId('');
-          }}
-        />
-      ) : null}
-      <Filtros
-        label={escopo === 'refeicao' ? 'Turno da refeição' : 'Turno dos alunos'}
-        opcoes={
-          escopo === 'refeicao'
-            ? TURNOS_ALUNO
-            : [
-                {
-                  id: 'todos',
-                  nome: 'Todos',
-                },
-                ...TURNOS_ALUNO,
-              ]
-        }
-        valor={turno}
-        onChange={(novoValor) => {
-          setTurno(novoValor);
-          setRefeicaoId('');
-        }}
-      />
-      {fontes.some((fonteDados) => fonteDados.carregando) ? (
+      {fontesDados.some((fonte) => fonte.carregando) ? (
         <Carregando />
-      ) : fontes.some((fonteDados) => fonteDados.erro) ? (
+      ) : fontesDados.some((fonte) => fonte.erro) ? (
         <Falha
-          mensagem={fontes.find((fonteDados) => fonteDados.erro)?.erro}
-          tentarNovamente={() => fontes.forEach((fonteDados) => fonteDados.tentarNovamente())}
+          mensagem={fontesDados.find((fonte) => fonte.erro)?.erro}
+          tentarNovamente={() => fontesDados.forEach((fonte) => fonte.tentarNovamente())}
         />
-      ) : !habilitado ? (
-        <Text style={ui.erro}>Esta área é exclusiva da equipe autorizada.</Text>
-      ) : escopo === 'refeicao' && !refeicao ? (
-        <View style={ui.card}>
-          <Text style={ui.secao}>Nenhuma refeição nesta seleção</Text>
-          <Text style={ui.texto}>
-            Selecione outra data ou turno. Os totais de cadastro continuam disponíveis na outra
-            visão.
-          </Text>
-        </View>
+      ) : !administradorAutorizado ? (
+        <Text style={ui.erro}>Esta área é exclusiva da direção.</Text>
       ) : (
         <>
-          {escopo === 'refeicao' ? (
-            <View style={ui.card}>
-              <Text testID="refeicao-planejada" style={ui.secao}>
-                {refeicao.nome}
-              </Text>
-              <Text style={ui.pequeno}>
-                {data.split('-').reverse().join('/')} ·{' '}
-                {TURNOS_ALUNO.find((turnoDaLista) => turnoDaLista.id === turno)?.nome}
-                {refeicao.ativo === false ? ' · Arquivada' : ''}
-              </Text>
-              {refeicoes.length > 1 ? (
-                <Filtros
-                  label="Refeição"
-                  opcoes={refeicoes.map((refeicaoDaLista) => ({
-                    id: refeicaoDaLista.id,
-                    nome: `${refeicaoDaLista.nome}${refeicaoDaLista.ativo === false ? ' (arquivada)' : ''}`,
-                  }))}
-                  valor={refeicao.id}
-                  onChange={setRefeicaoId}
-                />
-              ) : null}
-              <Text style={ui.texto}>
-                Os indicadores consideram somente os alunos com resposta Vou comer nesta refeição.
-              </Text>
-            </View>
-          ) : (
-            <View style={[ui.card, ui.aviso]}>
-              <Text style={ui.texto}>
-                Esta visão considera os alunos cadastrados no turno selecionado. Ela não representa
-                o número de refeições confirmadas.
-              </Text>
-            </View>
-          )}
           <View style={ui.linha}>
+            <Indicador label="Alunos cadastrados" valor={estatisticas.total} />
             <Indicador
-              label={escopo === 'refeicao' ? 'Confirmaram a refeição' : 'Alunos cadastrados'}
-              valor={resumo.total}
+              label="Com restrições declaradas"
+              valor={estatisticas.comRestricoes}
+              ajuda="Cada aluno conta uma vez, mesmo quando declara várias restrições."
             />
-            <Indicador label="Com restrições declaradas" valor={resumo.comRestricoes} />
           </View>
           <View style={ui.linha}>
-            <Indicador label="Sem restrições declaradas" valor={resumo.semRestricoes} />
+            <Indicador label="Sem restrições declaradas" valor={estatisticas.semRestricoes} />
             <Indicador
               label="Ainda não informaram"
-              valor={resumo.naoInformado}
+              valor={estatisticas.naoInformado}
               ajuda="Ausência de informação não significa ausência de restrição."
             />
           </View>
           <View style={ui.card}>
-            <Text style={ui.secao}>
-              {escopo === 'refeicao'
-                ? 'Declarações entre os confirmados'
-                : 'Declarações dos cadastros'}
-            </Text>
-            <Text style={ui.texto}>
-              {resumo.comRestricoes} de {resumo.total}{' '}
-              {escopo === 'refeicao'
-                ? 'alunos que confirmaram esta refeição'
-                : 'alunos cadastrados nesta seleção'}{' '}
-              declararam restrições alimentares.
-            </Text>
-            <View style={ui.linha}>
-              <Indicador label="Leite ou lactose" valor={resumo.impacto.semLeiteOuLactose} />
-              <Indicador label="Glúten ou trigo" valor={resumo.impacto.semGlutenOuTrigo} />
-              <Indicador
-                label="Alergias declaradas"
-                valor={resumo.impacto.alergiasDeclaradas}
-                ajuda="Alunos com uma ou mais alergias informadas, sem classificação de gravidade."
-              />
-            </View>
-            <Text style={ui.pequeno}>
-              As declarações precisam ser conferidas pela escola junto com os ingredientes e o
-              preparo. Um aluno pode aparecer em mais de um grupo.
-            </Text>
-            {resumo.semCadastro ? (
-              <Text style={ui.erro}>
-                {resumo.semCadastro} confirmação(ões) não têm cadastro válido nesta seleção e foram
-                contadas como situação não informada. Confira os vínculos.
-              </Text>
-            ) : null}
-          </View>
-          <View style={ui.card}>
             <Text style={ui.secao}>Quantidade por restrição</Text>
-            {resumo.total ? (
-              resumo.grupos.map((grupoRestricao) => (
-                <View
-                  key={grupoRestricao.id}
-                  testID={`estatistica-${grupoRestricao.id}`}
-                  style={estilosLocais.grupo}
-                >
-                  <View style={[ui.linha, estilosLocais.container]}>
-                    <Text style={[ui.texto, estilosLocais.container2]}>{grupoRestricao.nome}</Text>
-                    <Text style={ui.label}>
-                      {grupoRestricao.quantidade} ·{' '}
-                      {grupoRestricao.percentual.toFixed(1).replace('.', ',')}%
-                    </Text>
+            <Text testID="explicacao-contagem-restricoes" style={ui.texto}>
+              {estatisticas.comRestricoes} aluno(s) com restrições · {estatisticas.totalRestricoes}{' '}
+              restrição(ões) informada(s).
+            </Text>
+            <Text style={ui.pequeno}>
+              Um aluno pode aparecer em vários tipos. Por isso, a soma abaixo pode ser maior que o
+              número de alunos com restrições. Cada tipo conta o mesmo aluno apenas uma vez.
+            </Text>
+            {estatisticas.total ? (
+              <>
+                <Text style={ui.pequeno}>
+                  Os percentuais consideram os {estatisticas.total} alunos do turno selecionado.
+                </Text>
+                {estatisticas.grupos.map((restricao) => (
+                  <View
+                    key={restricao.id}
+                    testID={`estatistica-${restricao.id}`}
+                    style={estilos.grupoRestricao}
+                  >
+                    <View style={[ui.linha, estilos.linhaRestricao]}>
+                      <Text style={[ui.texto, estilos.nomeRestricao]}>{restricao.nome}</Text>
+                      <Text style={ui.label}>
+                        {restricao.quantidade} · {restricao.percentual.toFixed(1).replace('.', ',')}
+                        %
+                      </Text>
+                    </View>
+                    <View style={estilos.trilhoBarra}>
+                      <View
+                        style={[estilos.barraPreenchida, larguraDaBarra(restricao.percentual)]}
+                      />
+                    </View>
                   </View>
-                  <View style={estilosLocais.cartao}>
-                    <View style={criarEstiloBarraRestricao(grupoRestricao.percentual)} />
-                  </View>
-                </View>
-              ))
+                ))}
+              </>
             ) : (
-              <Text style={ui.texto}>
-                {escopo === 'refeicao'
-                  ? 'Ninguém confirmou esta refeição ainda.'
-                  : 'Nenhum aluno cadastrado nesta seleção.'}
-              </Text>
+              <Text style={ui.texto}>Nenhum aluno cadastrado nesta seleção.</Text>
             )}
           </View>
           <Text style={ui.pequeno}>
-            Os indicadores usam as declarações atualmente disponíveis. Esta tela mostra totais, sem
-            nomes ou comentários de saúde dos alunos.
+            Os totais usam as declarações atuais dos alunos desta escola e do turno selecionado. A
+            escola deve conferir as restrições junto com os ingredientes e o preparo.
           </Text>
         </>
       )}
@@ -255,28 +126,29 @@ export default function TelaRestricoesAdmin({ navigation, route }) {
     </Pagina>
   );
 }
-const estilosLocais = StyleSheet.create({
-  grupo: {
+
+const estilos = StyleSheet.create({
+  grupoRestricao: {
     gap: 6,
   },
-  container: {
+  linhaRestricao: {
     justifyContent: 'space-between',
   },
-  container2: {
+  nomeRestricao: {
     flex: 1,
   },
-  cartao: {
+  trilhoBarra: {
     height: 10,
     borderRadius: 5,
     backgroundColor: '#EAF0EA',
     overflow: 'hidden',
   },
-});
-
-function criarEstiloBarraRestricao(percentual) {
-  return {
+  barraPreenchida: {
     height: 10,
     backgroundColor: '#427B61',
-    width: `${percentual}%`,
-  };
+  },
+});
+
+function larguraDaBarra(percentual) {
+  return { width: `${Math.max(0, Math.min(100, percentual))}%` };
 }

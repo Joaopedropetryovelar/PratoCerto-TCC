@@ -94,6 +94,9 @@ export async function convidarAdministrador(dados) {
   return chamarFuncao('convidarAdministrador', dados);
 }
 export async function chamarFuncao(nome, dados = {}) {
+  const usuarioAtual = firebase().auth.currentUser;
+  if (!usuarioAtual) throw new Error('Entre novamente para concluir esta ação.');
+  await firebaseAuth.getIdToken(usuarioAtual, true);
   const { getFunctions, httpsCallable, connectFunctionsEmulator } = require('firebase/functions');
   const funcoes = getFunctions(firebase().app, 'southamerica-east1');
   if (process.env.EXPO_PUBLIC_USAR_EMULADORES === '1' && !funcoes.__pratoCertoLocal) {
