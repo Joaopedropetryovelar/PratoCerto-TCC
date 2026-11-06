@@ -11,6 +11,7 @@ import { dataDaEscola, dataValida } from '../../domain/refeicoes';
 import { moverDia, parseData, proximoDiaUtil } from '../../domain/calendario';
 import { organizarRefeicoesPorTurno, podeEditarRefeicao } from '../../domain/cardapio';
 import { excluirRefeicao } from '../../services/cardapio';
+
 export default function AdminCardapio({ navigation, route }) {
   const agora = useAgora(),
     hoje = dataDaEscola(agora),

@@ -25,7 +25,12 @@ const codigosConhecidos = new Set([
 
 function publicarOperacao(operacao) {
   return onCall(
-    { region: 'southamerica-east1', maxInstances: 3, timeoutSeconds: 180 },
+    {
+      region: 'southamerica-east1',
+      invoker: 'public',
+      maxInstances: 3,
+      timeoutSeconds: 180,
+    },
     async (pedido) => {
       try {
         return await operacao(pedido.auth, pedido.data);

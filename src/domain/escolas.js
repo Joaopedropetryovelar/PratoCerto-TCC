@@ -25,6 +25,13 @@ export const TURMAS = [
 export function escolaValida(escola) {
   return ESCOLAS.includes(escola);
 }
+export function escolasCadastroAdmin(perfil) {
+  if (
+    perfil?.tipoConta !== 'admin' || !escolaValida(perfil.escola) ||
+    (perfil.acessoAtivo !== undefined && perfil.acessoAtivo !== true)
+  ) return [];
+  return perfil.podeCadastrarAdminsOutrasEscolas === true ? [...ESCOLAS] : [perfil.escola];
+}
 export function chaveEscola(escola) {
   if (!escolaValida(escola)) throw new Error('Selecione uma escola válida.');
   return escola === ESCOLAS[0] ? 'satc' : 'ags';

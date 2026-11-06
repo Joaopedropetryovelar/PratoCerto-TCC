@@ -34,6 +34,7 @@ export const onSnapshot = (...argumentos) => firestore.onSnapshot(...argumentos)
 export const getDoc = (...argumentos) => firestore.getDoc(...argumentos);
 export const getDocFromServer = (...argumentos) => firestore.getDocFromServer(...argumentos);
 export const getDocs = (...argumentos) => firestore.getDocs(...argumentos);
+export const getDocsFromServer = (...argumentos) => firestore.getDocsFromServer(...argumentos);
 export const setDoc = (...argumentos) => firestore.setDoc(...argumentos);
 export const updateDoc = (...argumentos) => firestore.updateDoc(...argumentos);
 export const deleteDoc = (...argumentos) => firestore.deleteDoc(...argumentos);
@@ -90,15 +91,54 @@ export function reautenticar(usuario, senha) {
 export const verifyBeforeUpdateEmail = (...argumentos) =>
   firebaseAuth.verifyBeforeUpdateEmail(...argumentos);
 export const updatePassword = (...argumentos) => firebaseAuth.updatePassword(...argumentos);
+let numeroCadastro = 0;
+export function projetoFirebase() {
+  return firebase().app.options.projectId;
+}
+export async function abrirCadastroAdministrador() {
+  const { initializeApp, deleteApp } = require('firebase/app');
+  const nome = `cadastro-admin-${Date.now()}-${++numeroCadastro}`;
+  const aplicativo = initializeApp(firebase().app.options, nome);
+  let autenticacao;
+  try {
+    // A conta nova fica em memória, separada da sessão da direção.
+    autenticacao = firebaseAuth.initializeAuth(aplicativo, {
+      persistence: firebaseAuth.inMemoryPersistence,
+    });
+    autenticacao.languageCode = 'pt-BR';
+    if (process.env.EXPO_PUBLIC_USAR_EMULADORES === '1')
+      firebaseAuth.connectAuthEmulator(
+        autenticacao,
+        `http://${process.env.EXPO_PUBLIC_EMULADOR_HOST || '127.0.0.1'}:9099`,
+        { disableWarnings: true },
+      );
+  } catch (erro) {
+    await deleteApp(aplicativo);
+    throw erro;
+  }
+  return {
+    auth: autenticacao,
+    async encerrar() {
+      try {
+        await firebaseAuth.signOut(autenticacao);
+      } finally {
+        await deleteApp(aplicativo);
+      }
+    },
+  };
+}
 export async function convidarAdministrador(dados) {
-  return chamarFuncao('convidarAdministrador', dados);
+  return require('./administradores').cadastrarAdministrador(dados);
 }
 export async function chamarFuncao(nome, dados = {}) {
-  const usuarioAtual = firebase().auth.currentUser;
+  const cliente = firebase();
+  const usuarioAtual = cliente.auth.currentUser;
   if (!usuarioAtual) throw new Error('Entre novamente para concluir esta ação.');
   await firebaseAuth.getIdToken(usuarioAtual, true);
+  if (cliente.auth.currentUser?.uid !== usuarioAtual.uid)
+    throw new Error('Sua sessão mudou. Entre novamente para concluir esta ação.');
   const { getFunctions, httpsCallable, connectFunctionsEmulator } = require('firebase/functions');
-  const funcoes = getFunctions(firebase().app, 'southamerica-east1');
+  const funcoes = getFunctions(cliente.app, 'southamerica-east1');
   if (process.env.EXPO_PUBLIC_USAR_EMULADORES === '1' && !funcoes.__pratoCertoLocal) {
     connectFunctionsEmulator(funcoes, process.env.EXPO_PUBLIC_EMULADOR_HOST || '127.0.0.1', 5001);
     funcoes.__pratoCertoLocal = true;
@@ -110,10 +150,17 @@ export async function chamarFuncao(nome, dados = {}) {
       })(dados)
     ).data;
   } catch (erro) {
-    if (erro.code === 'functions/not-found')
-      throw new Error(
-        'A direção precisa publicar as funções atualizadas do aplicativo no Firebase.',
+    if (
+      erro.code === 'functions/not-found' &&
+      (!erro.message || /^not[-_ ]found$/i.test(erro.message))
+    ) {
+      const falha = new Error(
+        'O serviço ainda não foi ativado. Peça ao responsável pelo aplicativo para concluir a configuração do cadastro.',
       );
+      // Preserva o código para a tela distinguir configuração de falhas temporárias.
+      falha.code = erro.code;
+      throw falha;
+    }
     throw erro;
   }
 }

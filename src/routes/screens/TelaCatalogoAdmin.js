@@ -18,6 +18,7 @@ export default function TelaCatalogoAdmin({ navigation }) {
   const [mensagemErro, setMensagemErro] = useState(null);
   const [mensagemSucesso, setMensagemSucesso] = useState('');
   const [salvando, setSalvando] = useState(false);
+  const [solicitacaoTopo, setSolicitacaoTopo] = useState(0);
   const salvamentoEmAndamento = useRef(false);
 
   function abrirFormulario(refeicao = {}) {
@@ -27,6 +28,7 @@ export default function TelaCatalogoAdmin({ navigation }) {
     setDescricaoRefeicao(refeicao.descricao || '');
     setMensagemErro(null);
     setMensagemSucesso('');
+    setSolicitacaoTopo((numero) => numero + 1);
   }
 
   async function salvarRefeicaoNoCatalogo() {
@@ -62,7 +64,11 @@ export default function TelaCatalogoAdmin({ navigation }) {
   }
 
   return (
-    <Pagina titulo="Catálogo de refeições" subtitulo="Salve refeições para usar em outros dias.">
+    <Pagina
+      titulo="Catálogo de refeições"
+      subtitulo="Salve refeições para usar em outros dias."
+      solicitacaoTopo={solicitacaoTopo}
+    >
       {dadosPerfil.carregando ? (
         <Carregando />
       ) : dadosPerfil.erro ? (

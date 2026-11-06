@@ -36,6 +36,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
     [situacao, setSituacao] = useState('todas'),
     [erro, setErro] = useState(null),
     [ocupado, setOcupado] = useState(false);
+  const [solicitacaoTopo, setSolicitacaoTopo] = useState(0);
   const trava = useRef(false);
   function limpar() {
     setMatriculaEmEdicao(null);
@@ -92,6 +93,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
   return (
     <Pagina
       titulo="Matrículas autorizadas"
+      solicitacaoTopo={solicitacaoTopo}
       subtitulo={`${perfil.perfil?.escola || 'Sua escola'} · Autorize matrículas; o vínculo com e-mail é opcional.`}
     >
       {perfil.carregando ? (
@@ -390,6 +392,7 @@ export default function TelaMatriculasAdmin({ navigation }) {
                       setMatricula(matriculaAutorizada.matricula);
                       setEmail(matriculaAutorizada.email || '');
                       setErro(null);
+                      setSolicitacaoTopo((numero) => numero + 1);
                     }}
                   >
                     Editar matrícula

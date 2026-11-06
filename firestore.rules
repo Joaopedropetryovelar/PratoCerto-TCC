@@ -87,9 +87,28 @@ service cloud.firestore {
       return verified() && ((resource == null && aluno() && id.matches('.*_' + request.auth.uid))
         || (minhaEscola(resource.data) && (admin() || resource.data.alunoId == request.auth.uid)));
     }
+    function cadastroAdminOutraEscola() {
+      return admin() && perfil().get('podeCadastrarAdminsOutrasEscolas', false) == true;
+    }
+    function podeLerPerfilEquipe(d) {
+      return admin() && (minhaEscola(d)
+        || (cadastroAdminOutraEscola() && d.tipoConta == 'admin' && escolaValida(d.escola)));
+    }
+    function novoAdministrador(uid, d) {
+      return admin() && uid != request.auth.uid && texto(uid,1,128)
+        && d.keys().hasAll(['uid','nome','email','escola','tipoConta','acessoAtivo','criadoPorUid','dataCadastro'])
+        && d.keys().hasOnly(['uid','nome','email','escola','tipoConta','acessoAtivo','criadoPorUid','dataCadastro'])
+        && d.uid == uid && d.tipoConta == 'admin' && d.acessoAtivo == true
+        && escolaValida(d.escola) && (d.escola == perfil().escola || cadastroAdminOutraEscola())
+        && d.criadoPorUid == request.auth.uid
+        && texto(d.nome,3,100) && texto(d.email,3,254) && d.email == d.email.lower()
+        && d.email.matches('^[^ @]+@[^ @]+[.][^ @]+$') && d.dataCadastro == request.time;
+    }
     match /usuarios/{uid} {
-      allow get: if signed() && (request.auth.uid == uid || (admin() && minhaEscola(resource.data)));
-      allow list: if admin() && minhaEscola(resource.data);
+      allow get: if signed() && (request.auth.uid == uid || (admin() && resource == null)
+        || (resource != null && podeLerPerfilEquipe(resource.data)));
+      allow list: if podeLerPerfilEquipe(resource.data);
+      allow create: if novoAdministrador(uid, request.resource.data);
       allow create: if signed() && request.auth.uid == uid
         && request.resource.data.keys().hasOnly(['uid','nome','matricula','turma','turmaId','turnos','turno','escola','email','tipoConta','aceitouTermos','versaoTermos','dataConsentimento','dataCadastro','cientePrivacidade'])
         && request.resource.data.uid == uid && request.resource.data.tipoConta == 'aluno'

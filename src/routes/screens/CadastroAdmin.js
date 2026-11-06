@@ -3,21 +3,23 @@ import { Text, View } from 'react-native';
 import { Botao, Campo, Carregando, Falha, Pagina, ui } from '../../components/Interface';
 import { usePerfil } from '../../hooks/useDados';
 import { auth, convidarAdministrador, sendPasswordResetEmail } from '../../services/backend';
-import { emailNormalizado, emailValido } from '../../domain/contas';
+import { emailNormalizado, emailValido, erroSenha, mensagemAuth } from '../../domain/contas';
+import { escolasCadastroAdmin, chaveEscola } from '../../domain/escolas';
 export default function CadastroAdmin({ navigation }) {
   const perfil = usePerfil();
   const [nome, setNome] = useState(''),
-    [email, setEmail] = useState('');
+    [email, setEmail] = useState(''),
+    [escola, setEscola] = useState(''),
+    [senhaTemporaria, setSenhaTemporaria] = useState('');
   const [erros, setErros] = useState({}),
     [erro, setErro] = useState(null),
     [ocupado, setOcupado] = useState(false);
   const [convite, setConvite] = useState(null),
     [enviado, setEnviado] = useState(false),
     trava = useRef(false);
-  const autorizado =
-    perfil.perfil?.tipoConta === 'admin' &&
-    perfil.perfil.acessoAtivo !== false &&
-    auth.currentUser?.emailVerified;
+  const escolasPermitidas = escolasCadastroAdmin(perfil.perfil);
+  const escolaEscolhida = escola || perfil.perfil?.escola || '';
+  const autorizado = escolasPermitidas.length > 0 && auth.currentUser?.emailVerified;
   async function enviarLink(destino) {
     await sendPasswordResetEmail(auth, destino.email);
     setEnviado(true);
@@ -28,6 +30,9 @@ export default function CadastroAdmin({ navigation }) {
     if (nome.trim().length < 3 || nome.trim().length > 100)
       falhas.nome = 'Informe o nome completo, de 3 a 100 caracteres.';
     if (!emailValido(email)) falhas.email = 'Informe um e-mail que a pessoa consiga acessar.';
+    if (!escolasPermitidas.includes(escolaEscolhida))
+      falhas.escola = 'Escolha uma escola autorizada para sua conta.';
+    if (senhaTemporaria && erroSenha(senhaTemporaria)) falhas.senha = erroSenha(senhaTemporaria);
     setErros(falhas);
     setErro(null);
     if (Object.keys(falhas).length) return;
@@ -38,30 +43,18 @@ export default function CadastroAdmin({ navigation }) {
       const resultado = await convidarAdministrador({
         nome: nome.trim(),
         email: emailNormalizado(email),
+        escola: escolaEscolhida,
+        senhaTemporaria,
       });
       setConvite(resultado);
+      setSenhaTemporaria('');
       try {
         await enviarLink(resultado);
       } catch {
         setErro('O acesso já está autorizado, mas o envio falhou. Toque em Enviar link novamente.');
       }
     } catch (erroCapturado) {
-      if (['functions/permission-denied', 'functions/unauthenticated'].includes(erroCapturado.code))
-        setErro('Entre novamente com uma conta ativa da direção.');
-      else if (
-        [
-          'functions/internal',
-          'functions/unavailable',
-          'functions/deadline-exceeded',
-          'functions/not-found',
-        ].includes(erroCapturado.code) ||
-        /publicar as funções/i.test(erroCapturado.message || '')
-      )
-        setErro(
-          'O serviço de autorização está indisponível. Tente novamente; se continuar, procure o responsável pelo aplicativo.',
-        );
-      else
-        setErro(erroCapturado.message || 'Não foi possível autorizar o acesso. Tente novamente.');
+      setErro(mensagemAuth(erroCapturado));
     } finally {
       trava.current = false;
       setOcupado(false);
@@ -85,6 +78,8 @@ export default function CadastroAdmin({ navigation }) {
     setConvite(null);
     setNome('');
     setEmail('');
+    setEscola('');
+    setSenhaTemporaria('');
     setErros({});
     setErro(null);
     setEnviado(false);
@@ -93,7 +88,7 @@ export default function CadastroAdmin({ navigation }) {
     <Pagina
       estreita
       titulo="Novo administrador"
-      subtitulo={perfil.perfil?.escola || 'Equipe da direção'}
+      subtitulo={convite?.escola || 'Escolha a escola do novo administrador.'}
     >
       {perfil.carregando ? (
         <Carregando />
@@ -103,7 +98,7 @@ export default function CadastroAdmin({ navigation }) {
         <View style={ui.card}>
           <Text style={ui.texto}>
             Somente um administrador ativo e com e-mail confirmado pode autorizar novos integrantes
-            da própria escola.
+            das escolas autorizadas para sua conta.
           </Text>
         </View>
       ) : convite ? (
@@ -115,6 +110,7 @@ export default function CadastroAdmin({ navigation }) {
           <Text selectable style={ui.texto}>
             {convite.email}
           </Text>
+          <Text testID="escola-admin-autorizado" style={ui.selo}>Escola: {convite.escola}</Text>
           <Text accessibilityLiveRegion="polite" style={ui.selo}>
             {enviado ? 'Link de senha enviado por e-mail.' : 'Falta enviar o link de senha.'}
           </Text>
@@ -137,7 +133,7 @@ export default function CadastroAdmin({ navigation }) {
         <>
           <View style={ui.card}>
             <Text style={ui.texto}>
-              Informe quem fará parte da direção. A escola será vinculada automaticamente à sua.
+              Informe os dados e escolha a escola à qual o novo administrador pertencerá.
             </Text>
             <Campo
               testID="nome-novo-admin"
@@ -160,6 +156,41 @@ export default function CadastroAdmin({ navigation }) {
               autoCorrect={false}
               editable={!ocupado}
               maxLength={254}
+            />
+            <View style={ui.campo}>
+              <Text style={ui.label}>Escola do administrador</Text>
+              {escolasPermitidas.map((opcao) => (
+                <Botao
+                  key={opcao}
+                  testID={`escola-admin-${chaveEscola(opcao)}`}
+                  secundario
+                  selecionado={escolaEscolhida === opcao}
+                  disabled={ocupado}
+                  onPress={() => setEscola(opcao)}
+                >
+                  {opcao}
+                </Botao>
+              ))}
+              <Text style={ui.pequeno}>
+                {escolasPermitidas.length > 1
+                  ? 'O novo administrador terá acesso somente à escola selecionada.'
+                  : 'Sua conta pode cadastrar administradores somente na própria escola.'}
+              </Text>
+              {erros.escola ? <Text accessibilityRole="alert" style={ui.erro}>{erros.escola}</Text> : null}
+            </View>
+            <Campo
+              testID="senha-inicial-admin"
+              label="Senha inicial"
+              ajuda="Necessária para uma conta nova. Para reenviar acesso a um administrador já cadastrado, deixe em branco."
+              value={senhaTemporaria}
+              onChangeText={setSenhaTemporaria}
+              erro={erros.senha}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="new-password"
+              maxLength={128}
+              editable={!ocupado}
             />
           </View>
           <Botao testID="autorizar-novo-admin" carregando={ocupado} onPress={adicionar}>

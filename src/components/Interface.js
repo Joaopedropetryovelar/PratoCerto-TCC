@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Platform,
   ScrollView,
   StyleSheet,
@@ -14,16 +15,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icone from './Icone';
 export const ContextoAviso = React.createContext(false);
 export const ContextoCabecalho = React.createContext(false);
-export function Pagina({ titulo, subtitulo, children, estreita = false }) {
+export function Pagina({ titulo, subtitulo, children, estreita = false, solicitacaoTopo = 0 }) {
   const comAviso = React.useContext(ContextoAviso);
   const comCabecalho = React.useContext(ContextoCabecalho);
+  const rolagem = React.useRef(null);
   const { width } = useWindowDimensions();
+  React.useEffect(() => {
+    if (!solicitacaoTopo) return;
+    Keyboard.dismiss();
+    rolagem.current?.scrollTo({ y: 0, animated: true });
+  }, [solicitacaoTopo]);
   return (
     <SafeAreaView
       style={ui.pagina}
       edges={comAviso || comCabecalho ? ['left', 'right'] : ['top', 'left', 'right']}
     >
       <ScrollView
+        ref={rolagem}
         keyboardShouldPersistTaps="handled"
         automaticallyAdjustKeyboardInsets
         contentContainerStyle={[
