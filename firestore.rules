@@ -178,18 +178,22 @@ service cloud.firestore {
     }
     function aberturaPedido(uid,d) {
       let p = perfil();
-      return aluno() && request.auth.uid == uid && estruturaPedido(d)
+      return aluno() && request.auth.uid == uid
+        && ((resource == null && d.revisao == 1 && d.ciclo == 1)
+          || (resource != null && resource.data.status == 'concluida' && minhaEscola(resource.data)
+            && (!(resource.data.tipo in ['exclusao_dados','anonimizacao_dados']) || resource.data.get('providenciaExecutadaEm', null) != null)
+            && d.revisao == resource.data.get('revisao',1) + 1 && d.ciclo == resource.data.get('ciclo',1) + 1))
+        && estruturaPedido(d)
         && d.alunoId == uid && d.alunoNome == p.nome && d.email == request.auth.token.email
         && d.escola == p.escola && d.matricula == p.matricula && d.turma == p.turma
         && d.status == 'pendente' && d.resposta == '' && d.atendidoPorUid == '' && d.atendidoPorNome == '' && d.atendidoEm == null
-        && d.criadoEm == request.time && eventoPedido(d,uid)
-        && ((resource == null && d.revisao == 1 && d.ciclo == 1)
-          || (resource != null && resource.data.status == 'concluida' && minhaEscola(resource.data)
-            && d.revisao == resource.data.get('revisao',1) + 1 && d.ciclo == resource.data.get('ciclo',1) + 1));
+        && d.criadoEm == request.time && eventoPedido(d,uid);
     }
     function atendimentoPedido(uid,d) {
-      return admin() && minhaEscola(resource.data) && estruturaPedido(d) && minhaEscola(d)
+      return admin() && minhaEscola(resource.data)
         && resource.data.status in ['pendente','em_analise'] && !resource.data.get('executandoExclusao', false) && d.status in ['em_analise','concluida']
+        && (d.status != 'concluida' || !(d.tipo in ['exclusao_dados','anonimizacao_dados']))
+        && estruturaPedido(d) && minhaEscola(d)
         && d.diff(resource.data).affectedKeys().hasOnly(['status','resposta','atendidoPorUid','atendidoPorNome','atendidoEm','atualizadoEm','revisao','ciclo'])
         && d.ciclo == resource.data.get('ciclo',1) && d.revisao == resource.data.get('revisao',1) + 1
         && d.atendidoPorUid == request.auth.uid && d.atendidoPorNome == perfil().nome && d.atendidoEm == request.time

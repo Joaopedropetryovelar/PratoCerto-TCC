@@ -27,9 +27,31 @@ export function cicloPedido(pedido) {
 export function podeAtender(pedido) {
   return ['pendente', 'em_analise'].includes(pedido?.status);
 }
+export function pedidoExigeExclusao(pedido) {
+  return ['exclusao_dados', 'anonimizacao_dados'].includes(pedido?.tipo);
+}
+export function podeExecutarExclusao(pedido) {
+  return (
+    pedidoExigeExclusao(pedido) &&
+    !pedido.providenciaExecutadaEm &&
+    ['pendente', 'em_analise', 'concluida'].includes(pedido.status)
+  );
+}
+export function pedidoEmAndamento(pedido) {
+  return podeAtender(pedido) || podeExecutarExclusao(pedido);
+}
+export function statusPedido(pedido) {
+  return pedido?.status === 'concluida' && podeExecutarExclusao(pedido)
+    ? 'pendente'
+    : pedido?.status;
+}
 export function validarAtendimento(pedido, status, resposta) {
   if (!podeAtender(pedido)) return 'Este pedido já foi concluído. Recarregue a lista.';
+  if (pedido.executandoExclusao || pedido.execucaoIniciadaEm)
+    return 'A limpeza dos dados já foi iniciada. Use o botão de retomar a exclusão.';
   if (!['em_analise', 'concluida'].includes(status)) return 'Escolha Em análise ou Concluída.';
+  if (status === 'concluida' && pedidoExigeExclusao(pedido))
+    return 'Use o botão de excluir os dados para executar a providência e concluir este pedido.';
   if (typeof resposta !== 'string' || resposta.trim().length > 1000)
     return 'Use uma resposta de até 1.000 caracteres.';
   if (status === 'concluida' && resposta.trim().length < 3)

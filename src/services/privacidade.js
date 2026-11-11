@@ -1,5 +1,18 @@
-import { auth, database, doc, getDoc, serverTimestamp, executarTransacao } from './backend';
-import { revisaoPedido, cicloPedido, podeAtender, validarAtendimento } from '../domain/privacidade';
+import {
+  auth,
+  database,
+  doc,
+  getDoc,
+  serverTimestamp,
+  executarTransacao,
+  chamarFuncao,
+} from './backend';
+import {
+  revisaoPedido,
+  cicloPedido,
+  pedidoEmAndamento,
+  validarAtendimento,
+} from '../domain/privacidade';
 export const TIPO_SOLICITACAO_EXCLUSAO = 'exclusao_dados';
 export const STATUS_SOLICITACAO_PENDENTE = 'pendente';
 export const VERSAO_POLITICA_PRIVACIDADE = '2026-10-13';
@@ -52,7 +65,7 @@ export async function solicitarExclusaoDados(mensagem = '', tipo = 'exclusao_dad
   return executarTransacao(async (transacao) => {
     const documentoConsultado = await transacao.get(referenciaDocumento),
       anterior = documentoConsultado.exists() ? documentoConsultado.data() : null;
-    if (anterior && podeAtender(anterior))
+    if (anterior && pedidoEmAndamento(anterior))
       throw new Error('Você já possui um pedido em andamento. Acompanhe a resposta no seu perfil.');
     if (
       anterior &&
@@ -84,6 +97,36 @@ export async function solicitarExclusaoDados(mensagem = '', tipo = 'exclusao_dad
     escreverPedido(transacao, referenciaDocumento, dados, perfil);
     return dados;
   });
+}
+export async function executarExclusaoSolicitada(identificadorAluno, revisaoEsperada) {
+  if (
+    typeof identificadorAluno !== 'string' ||
+    !identificadorAluno ||
+    identificadorAluno.includes('/') ||
+    !Number.isInteger(revisaoEsperada) ||
+    revisaoEsperada < 1
+  )
+    throw new Error('Confira o pedido selecionado antes de excluir os dados.');
+  try {
+    const resultado = await chamarFuncao('executarExclusaoDados', {
+      uid: identificadorAluno,
+      revisaoEsperada,
+    });
+    if (resultado?.concluida !== true)
+      throw new Error(
+        'A exclusão não foi confirmada. Recarregue o pedido antes de tentar novamente.',
+      );
+    return resultado;
+  } catch (erro) {
+    if (
+      erro.code === 'functions/not-found' &&
+      /not[-_ ]found|serviço ainda não foi ativado/i.test(erro.message || '')
+    )
+      throw new Error(
+        'O serviço de exclusão ainda não foi ativado. Peça à equipe responsável pelo aplicativo para concluir essa configuração. O pedido continua pendente.',
+      );
+    throw erro;
+  }
 }
 export async function atenderSolicitacao(
   identificadorUsuario,

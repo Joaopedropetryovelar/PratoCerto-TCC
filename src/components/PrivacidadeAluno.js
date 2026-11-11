@@ -4,7 +4,13 @@ import { auth, chamarFuncao } from '../services/backend';
 import { useDocumento } from '../hooks/useDados';
 import { solicitarExclusaoDados } from '../services/privacidade';
 import { exportarDadosPessoais } from '../services/exportar';
-import { TIPOS_PEDIDO, nomeStatus, podeAtender, cicloPedido } from '../domain/privacidade';
+import {
+  TIPOS_PEDIDO,
+  nomeStatus,
+  pedidoEmAndamento,
+  statusPedido,
+  cicloPedido,
+} from '../domain/privacidade';
 import { mensagemAuth } from '../domain/contas';
 import { Botao, Campo, Carregando, Falha, Filtros, ui } from './Interface';
 import { Alert } from './Alerta';
@@ -74,7 +80,7 @@ export default function PrivacidadeAluno() {
           {pedido.dados ? (
             <View style={estilosLocais.grupo}>
               <Text testID="status-pedido-privacidade" style={ui.selo}>
-                Pedido {cicloPedido(pedido.dados)} · {nomeStatus(pedido.dados.status)}
+                Pedido {cicloPedido(pedido.dados)} · {nomeStatus(statusPedido(pedido.dados))}
               </Text>
               {pedido.dados.mensagem ? (
                 <Text style={ui.texto}>Sua mensagem: {pedido.dados.mensagem}</Text>
@@ -94,7 +100,7 @@ export default function PrivacidadeAluno() {
               {historico ? <HistoricoPrivacidade uid={identificadorUsuario} /> : null}
             </View>
           ) : null}
-          {!podeAtender(pedido.dados) ? (
+          {!pedidoEmAndamento(pedido.dados) ? (
             formulario ? (
               <>
                 <Filtros
@@ -114,8 +120,8 @@ export default function PrivacidadeAluno() {
                   editable={!ocupado}
                 />
                 <Text style={ui.pequeno}>
-                  A conclusão registra o atendimento da escola. A equipe deve informar o que foi
-                  feito e quais registros precisam ser mantidos.
+                  A escola analisará sua solicitação. Nos pedidos de exclusão, a conclusão será
+                  registrada após a execução da limpeza dos dados.
                 </Text>
                 <Botao testID="registrar-solicitacao-lgpd" carregando={ocupado} onPress={enviar}>
                   Registrar solicitação

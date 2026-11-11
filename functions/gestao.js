@@ -108,46 +108,59 @@ function criarGestao({ db: bancoDados, auth, FieldValue, Timestamp }) {
       ...respostas,
     };
   }
-  async function executarExclusao(actor, dados) {
-    const diretor = await perfilAtual(actor, 'admin');
-    const identificadorUsuario = dados?.uid;
+  async function executarExclusao(administradorAutenticado, dados) {
+    const perfilAdministrador = await perfilAtual(administradorAutenticado, 'admin');
+    const identificadorAluno = dados?.uid;
     exigir(
-      typeof identificadorUsuario === 'string' &&
-        identificadorUsuario &&
-        !identificadorUsuario.includes('/') &&
-        identificadorUsuario !== actor.uid &&
+      typeof identificadorAluno === 'string' &&
+        identificadorAluno &&
+        !identificadorAluno.includes('/') &&
+        identificadorAluno !== administradorAutenticado.uid &&
         Number.isInteger(dados.revisaoEsperada),
       'Confira o pedido.',
       'invalid-argument',
     );
-    const pedidoRef = bancoDados.collection('solicitacoesPrivacidade').doc(identificadorUsuario);
-    const usuarioRef = bancoDados.collection('usuarios').doc(identificadorUsuario);
-    const token = randomBytes(16).toString('hex');
-    const base = await bancoDados.runTransaction(async (transacao) => {
-      const [pedidoSnap, usuarioSnap, autorSnap] = await Promise.all([
-        transacao.get(pedidoRef),
-        transacao.get(usuarioRef),
-        transacao.get(bancoDados.collection('usuarios').doc(actor.uid)),
+    const referenciaPedido = bancoDados
+      .collection('solicitacoesPrivacidade')
+      .doc(identificadorAluno);
+    const referenciaAluno = bancoDados.collection('usuarios').doc(identificadorAluno);
+    const tokenExecucao = randomBytes(16).toString('hex');
+    const dadosPedido = await bancoDados.runTransaction(async (transacao) => {
+      const [documentoPedido, documentoAluno, documentoAdministrador] = await Promise.all([
+        transacao.get(referenciaPedido),
+        transacao.get(referenciaAluno),
+        transacao.get(bancoDados.collection('usuarios').doc(administradorAutenticado.uid)),
       ]);
       exigir(
-        autorSnap.exists &&
-          autorSnap.data().tipoConta === 'admin' &&
-          autorSnap.data().escola === diretor.escola &&
-          autorSnap.data().acessoAtivo !== false,
+        documentoAdministrador.exists &&
+          documentoAdministrador.data().tipoConta === 'admin' &&
+          documentoAdministrador.data().escola === perfilAdministrador.escola &&
+          documentoAdministrador.data().acessoAtivo !== false,
         'Sua autorização mudou.',
       );
       exigir(
-        pedidoSnap.exists &&
-          pedidoSnap.data().escola === diretor.escola &&
-          pedidoSnap.data().alunoId === identificadorUsuario,
+        documentoPedido.exists &&
+          documentoPedido.data().escola === perfilAdministrador.escola &&
+          documentoPedido.data().alunoId === identificadorAluno,
         'Pedido indisponível nesta escola.',
       );
-      const pedido = pedidoSnap.data();
+      const dadosSalvos = documentoPedido.data();
+      const pedido = {
+        ...dadosSalvos,
+        revisao: Number.isInteger(dadosSalvos.revisao) ? dadosSalvos.revisao : 1,
+        ciclo: Number.isInteger(dadosSalvos.ciclo) ? dadosSalvos.ciclo : 1,
+        versaoPolitica: dadosSalvos.versaoPolitica || '2026-10-13',
+        criadoEm: dadosSalvos.criadoEm || Timestamp.now(),
+      };
+      exigir(
+        ['exclusao_dados', 'anonimizacao_dados'].includes(pedido.tipo),
+        'Esta ação exige um pedido de exclusão ou de retirada de identificação.',
+        'failed-precondition',
+      );
       if (pedido.status === 'concluida' && pedido.providenciaExecutadaEm) return null;
       exigir(
-        ['exclusao_dados', 'anonimizacao_dados'].includes(pedido.tipo) &&
-          ['pendente', 'em_analise'].includes(pedido.status),
-        'Esta ação exige um pedido de exclusão aberto.',
+        ['pendente', 'em_analise', 'concluida'].includes(pedido.status),
+        'O status deste pedido precisa ser conferido pela equipe.',
         'failed-precondition',
       );
       exigir(
@@ -157,192 +170,271 @@ function criarGestao({ db: bancoDados, auth, FieldValue, Timestamp }) {
       );
       exigir(
         !pedido.executandoExclusao ||
-          Date.now() - (pedido.execucaoIniciadaEm?.toMillis() || 0) > 180000,
+          Date.now() - (pedido.execucaoIniciadaEm?.toMillis?.() || 0) > 180000,
         'Uma exclusão já está em andamento. Aguarde antes de tentar novamente.',
         'failed-precondition',
       );
       exigir(
-        !usuarioSnap.exists ||
-          (usuarioSnap.data().tipoConta === 'aluno' &&
-            usuarioSnap.data().escola === diretor.escola),
+        !documentoAluno.exists ||
+          (documentoAluno.data().tipoConta === 'aluno' &&
+            documentoAluno.data().escola === perfilAdministrador.escola),
         'O perfil precisa de conferência.',
       );
-      const matricula = usuarioSnap.data()?.matricula || pedido.matricula;
-      transacao.update(pedidoRef, {
+      exigir(
+        pedido.tipo !== 'anonimizacao_dados' || documentoAluno.exists,
+        'A conta do aluno não foi encontrada para preservar seu acesso.',
+        'failed-precondition',
+      );
+      const matricula = documentoAluno.data()?.matricula || pedido.matricula;
+      const acessoAlunoAnterior =
+        typeof pedido.acessoAlunoAnterior === 'boolean'
+          ? pedido.acessoAlunoAnterior
+          : documentoAluno.data()?.acessoAtivo !== false;
+      transacao.update(referenciaPedido, {
+        status: 'em_analise',
         executandoExclusao: true,
-        tokenExecucao: token,
+        tokenExecucao: tokenExecucao,
         execucaoIniciadaEm: Timestamp.now(),
-        idAnonimo: pedido.idAnonimo || token,
-        matricula,
+        idAnonimo: pedido.idAnonimo || tokenExecucao,
+        matricula: matricula || '',
+        acessoAlunoAnterior,
       });
-      if (usuarioSnap.exists)
-        transacao.update(usuarioRef, {
+      if (documentoAluno.exists)
+        transacao.update(referenciaAluno, {
           acessoAtivo: false,
         });
       return {
         ...pedido,
-        matricula,
-        idAnonimo: pedido.idAnonimo || token,
+        matricula: matricula || '',
+        acessoAlunoAnterior,
+        idAnonimo: pedido.idAnonimo || tokenExecucao,
       };
     });
-    if (!base)
+    if (!dadosPedido)
       return {
         concluida: true,
       };
-    // A conta fica bloqueada durante a limpeza. Uma falha pode ser retomada pelo mesmo pedido.
     try {
-      if (base.tipo === 'exclusao_dados')
-        await auth.updateUser(identificadorUsuario, {
-          disabled: true,
-        });
-      await auth.revokeRefreshTokens(identificadorUsuario);
-    } catch (erro) {
-      if (erro.code !== 'auth/user-not-found') throw erro;
-    }
-    for (const nome of ['confirmacoes', 'feedbacks']) {
-      while (true) {
-        const quantidade = await bancoDados.runTransaction(async (lote) => {
-          const pedidoAtual = await lote.get(pedidoRef);
+      // A conta fica bloqueada durante a limpeza. Uma falha pode ser retomada pelo mesmo pedido.
+      try {
+        if (dadosPedido.tipo === 'exclusao_dados') {
+          await auth.updateUser(identificadorAluno, {
+            disabled: true,
+          });
+          await auth.revokeRefreshTokens(identificadorAluno);
+        }
+      } catch (erro) {
+        if (erro.code !== 'auth/user-not-found') throw erro;
+      }
+      for (const nome of ['confirmacoes', 'feedbacks']) {
+        while (true) {
+          const quantidade = await bancoDados.runTransaction(async (transacao) => {
+            const pedidoAtual = await transacao.get(referenciaPedido);
+            exigir(
+              pedidoAtual.data()?.tokenExecucao === tokenExecucao,
+              'Outra execução assumiu este pedido.',
+              'aborted',
+            );
+            const pagina = await transacao.get(
+              bancoDados.collection(nome).where('alunoId', '==', identificadorAluno).limit(100),
+            );
+            for (const documento of pagina.docs) {
+              exigir(
+                documento.data().escola === perfilAdministrador.escola,
+                'Há registros inconsistentes; a conta continua bloqueada para conferência.',
+                'failed-precondition',
+              );
+              // Conserva somente números operacionais e categorias; remove texto livre e identificadores.
+              const respostaOriginal = documento.data(),
+                respostaSemIdentificacao = {};
+              for (const campo of [
+                'escola',
+                'data',
+                'turno',
+                'refeicaoId',
+                'refeicaoNome',
+                'tipoRefeicao',
+                'vaiConsumir',
+                'resposta',
+                'nota',
+                'emoji',
+                'emojiValor',
+                'etiquetas',
+                'dataResposta',
+                'criadoEm',
+              ]) {
+                if (respostaOriginal[campo] !== undefined)
+                  respostaSemIdentificacao[campo] = respostaOriginal[campo];
+              }
+              respostaSemIdentificacao.alunoId = `registro_${dadosPedido.idAnonimo}`;
+              respostaSemIdentificacao.alunoNome = '';
+              respostaSemIdentificacao.turma = '';
+              if (nome === 'feedbacks') respostaSemIdentificacao.comentario = '';
+              transacao.set(bancoDados.collection(nome).doc(), respostaSemIdentificacao);
+              transacao.delete(documento.ref);
+            }
+            if (pagina.size)
+              transacao.update(referenciaPedido, { execucaoIniciadaEm: Timestamp.now() });
+            return pagina.size;
+          });
+          if (quantidade === 0) break;
+        }
+      }
+      if (dadosPedido.tipo === 'anonimizacao_dados') {
+        await bancoDados.runTransaction(async (transacao) => {
+          const documentoAtual = await transacao.get(referenciaPedido);
           exigir(
-            pedidoAtual.data()?.tokenExecucao === token,
-            'Outra execução assumiu este pedido.',
+            documentoAtual.data()?.tokenExecucao === tokenExecucao,
+            'Outra execução assumiu o pedido.',
             'aborted',
           );
-          const pagina = await lote.get(
-            bancoDados.collection(nome).where('alunoId', '==', identificadorUsuario).limit(100),
+          transacao.update(referenciaAluno, {
+            acessoAtivo: dadosPedido.acessoAlunoAnterior,
+          });
+          const pedidoConcluido = {
+            ...dadosPedido,
+            status: 'concluida',
+            mensagem: '',
+            resposta:
+              'Os identificadores e comentários das respostas anteriores foram removidos. Sua conta e sua declaração alimentar foram preservadas.',
+            revisao: dadosPedido.revisao + 1,
+            atualizadoEm: FieldValue.serverTimestamp(),
+            atendidoEm: FieldValue.serverTimestamp(),
+            atendidoPorUid: administradorAutenticado.uid,
+            atendidoPorNome: perfilAdministrador.nome || 'Equipe',
+            providenciaExecutadaEm: FieldValue.serverTimestamp(),
+          };
+          for (const campo of [
+            'idAnonimo',
+            'tokenExecucao',
+            'executandoExclusao',
+            'execucaoIniciadaEm',
+            'acessoAlunoAnterior',
+          ])
+            delete pedidoConcluido[campo];
+          transacao.set(referenciaPedido, pedidoConcluido);
+          transacao.set(
+            referenciaPedido.collection('historico').doc(String(pedidoConcluido.revisao)),
+            {
+              revisao: pedidoConcluido.revisao,
+              ciclo: pedidoConcluido.ciclo,
+              status: pedidoConcluido.status,
+              mensagem: pedidoConcluido.mensagem,
+              resposta: pedidoConcluido.resposta,
+              pedidoEm: pedidoConcluido.criadoEm,
+              autorUid: administradorAutenticado.uid,
+              autorNome: perfilAdministrador.nome || 'Equipe',
+              autorTipo: 'admin',
+              criadoEm: FieldValue.serverTimestamp(),
+            },
           );
-          for (const documento of pagina.docs) {
-            exigir(
-              documento.data().escola === diretor.escola,
-              'Há registros inconsistentes; a conta continua bloqueada para conferência.',
-              'failed-precondition',
-            );
-            // Conserva somente números operacionais e categorias; remove texto livre e identificadores.
-            const original = documento.data(),
-              agregado = {};
-            for (const campo of [
-              'escola',
-              'data',
-              'turno',
-              'refeicaoId',
-              'refeicaoNome',
-              'tipoRefeicao',
-              'vaiConsumir',
-              'resposta',
-              'nota',
-              'emoji',
-              'emojiValor',
-              'etiquetas',
-              'dataResposta',
-              'criadoEm',
-            ]) {
-              if (original[campo] !== undefined) agregado[campo] = original[campo];
-            }
-            agregado.alunoId = `registro_${base.idAnonimo}`;
-            agregado.alunoNome = '';
-            agregado.turma = '';
-            if (nome === 'feedbacks') agregado.comentario = '';
-            lote.set(bancoDados.collection(nome).doc(), agregado);
-            lote.delete(documento.ref);
-          }
-          return pagina.size;
         });
-        if (quantidade === 0) break;
+        return {
+          concluida: true,
+          contaPreservada: true,
+        };
       }
-    }
-    if (base.tipo === 'anonimizacao_dados') {
+      const referenciaRestricoes = bancoDados
+        .collection('restricoesAlimentares')
+        .doc(identificadorAluno);
       await bancoDados.runTransaction(async (transacao) => {
-        const atual = await transacao.get(pedidoRef);
+        const pedidoAtual = await transacao.get(referenciaPedido);
         exigir(
-          atual.data()?.tokenExecucao === token,
+          pedidoAtual.data()?.tokenExecucao === tokenExecucao,
           'Outra execução assumiu o pedido.',
           'aborted',
         );
-        transacao.update(usuarioRef, {
-          acessoAtivo: true,
-        });
-        const limpo = {
-          ...base,
+        transacao.delete(referenciaRestricoes);
+      });
+      // A matrícula e cada versão do histórico também podem conter dados pessoais.
+      const consultasParaExcluir = [
+        bancoDados.collection('matriculasAutorizadas').where('alunoId', '==', identificadorAluno),
+        referenciaPedido.collection('historico'),
+      ];
+      for (const consulta of consultasParaExcluir) {
+        while (true) {
+          const quantidade = await bancoDados.runTransaction(async (transacao) => {
+            const pedidoAtual = await transacao.get(referenciaPedido);
+            exigir(
+              pedidoAtual.data()?.tokenExecucao === tokenExecucao,
+              'Outra execução assumiu o pedido.',
+              'aborted',
+            );
+            const pagina = await transacao.get(consulta.limit(100));
+            for (const documento of pagina.docs) {
+              if (documento.ref.parent.id === 'matriculasAutorizadas')
+                exigir(
+                  documento.data().escola === perfilAdministrador.escola,
+                  'Há uma matrícula de outra escola vinculada a esta conta. Procure a equipe.',
+                  'failed-precondition',
+                );
+              transacao.delete(documento.ref);
+            }
+            if (pagina.size)
+              transacao.update(referenciaPedido, { execucaoIniciadaEm: Timestamp.now() });
+            return pagina.size;
+          });
+          if (quantidade === 0) break;
+        }
+      }
+      try {
+        await auth.deleteUser(identificadorAluno);
+      } catch (erro) {
+        if (erro.code !== 'auth/user-not-found') throw erro;
+      }
+      await bancoDados.runTransaction(async (transacao) => {
+        const documentoAtual = await transacao.get(referenciaPedido);
+        exigir(
+          documentoAtual.data()?.tokenExecucao === tokenExecucao,
+          'Outra execução assumiu este pedido. Recarregue.',
+          'aborted',
+        );
+        const chave = `${perfilAdministrador.escola === 'Satc' ? 'satc' : 'ags'}_${dadosPedido.matricula}`;
+        const matriculaRef = bancoDados.collection('matriculasAutorizadas').doc(chave);
+        const matricula = await transacao.get(matriculaRef);
+        if (matricula.exists && matricula.data().alunoId === identificadorAluno)
+          transacao.delete(matriculaRef);
+        transacao.delete(referenciaAluno);
+        // Comprovante mínimo para prestação de contas, sem nome, matrícula, e-mail ou mensagem.
+        transacao.set(referenciaPedido, {
+          escola: perfilAdministrador.escola,
+          alunoId: identificadorAluno,
+          alunoNome: 'Conta excluída',
+          matricula: '',
+          turma: '',
+          email: '',
+          tipo: 'exclusao_dados',
           status: 'concluida',
           mensagem: '',
           resposta:
-            'Os identificadores e comentários das respostas anteriores foram removidos. Sua conta e sua declaração alimentar foram preservadas.',
-          revisao: base.revisao + 1,
+            'Conta e declaração alimentar excluídas. Identificadores e textos livres das respostas foram removidos; totais operacionais foram preservados.',
+          revisao: dadosPedido.revisao + 1,
+          ciclo: dadosPedido.ciclo,
+          versaoPolitica: dadosPedido.versaoPolitica,
+          criadoEm: dadosPedido.criadoEm,
           atualizadoEm: FieldValue.serverTimestamp(),
           atendidoEm: FieldValue.serverTimestamp(),
-          atendidoPorUid: actor.uid,
-          atendidoPorNome: diretor.nome,
+          atendidoPorUid: administradorAutenticado.uid,
+          atendidoPorNome: perfilAdministrador.nome || 'Equipe',
           providenciaExecutadaEm: FieldValue.serverTimestamp(),
-        };
-        for (const campo of [
-          'idAnonimo',
-          'tokenExecucao',
-          'executandoExclusao',
-          'execucaoIniciadaEm',
-        ])
-          delete limpo[campo];
-        transacao.set(pedidoRef, limpo);
+        });
       });
       return {
         concluida: true,
-        contaPreservada: true,
       };
-    }
-    await bancoDados.collection('restricoesAlimentares').doc(identificadorUsuario).delete();
-    const historico = await pedidoRef.collection('historico').get();
-    // Cada histórico pode conter cópias da mensagem original. Também precisa ser eliminado.
-    for (let indice = 0; indice < historico.size; indice += 400) {
-      const lote = bancoDados.batch();
-      historico.docs
-        .slice(indice, indice + 400)
-        .forEach((documentoResposta) => lote.delete(documentoResposta.ref));
-      await lote.commit();
-    }
-    try {
-      await auth.deleteUser(identificadorUsuario);
     } catch (erro) {
-      if (erro.code !== 'auth/user-not-found') throw erro;
+    
+      try {
+        await bancoDados.runTransaction(async (transacao) => {
+          const pedidoAtual = await transacao.get(referenciaPedido);
+          if (pedidoAtual.data()?.tokenExecucao === tokenExecucao)
+            transacao.update(referenciaPedido, { executandoExclusao: false });
+        });
+      } catch {
+
+      }
+      throw erro;
     }
-    await bancoDados.runTransaction(async (transacao) => {
-      const atual = await transacao.get(pedidoRef);
-      exigir(
-        atual.data()?.tokenExecucao === token,
-        'Outra execução assumiu este pedido. Recarregue.',
-        'aborted',
-      );
-      const chave = `${diretor.escola === 'Satc' ? 'satc' : 'ags'}_${base.matricula}`;
-      const matriculaRef = bancoDados.collection('matriculasAutorizadas').doc(chave);
-      const matricula = await transacao.get(matriculaRef);
-      if (matricula.exists && matricula.data().alunoId === identificadorUsuario)
-        transacao.delete(matriculaRef);
-      transacao.delete(usuarioRef);
-      // Comprovante mínimo para prestação de contas, sem nome, matrícula, e-mail ou mensagem.
-      transacao.set(pedidoRef, {
-        escola: diretor.escola,
-        alunoId: identificadorUsuario,
-        alunoNome: 'Conta excluída',
-        matricula: '',
-        turma: '',
-        email: '',
-        tipo: 'exclusao_dados',
-        status: 'concluida',
-        mensagem: '',
-        resposta:
-          'Conta e declaração alimentar excluídas. Identificadores e textos livres das respostas foram removidos; totais operacionais foram preservados.',
-        revisao: base.revisao + 1,
-        ciclo: base.ciclo,
-        versaoPolitica: base.versaoPolitica,
-        criadoEm: base.criadoEm,
-        atualizadoEm: FieldValue.serverTimestamp(),
-        atendidoEm: FieldValue.serverTimestamp(),
-        atendidoPorUid: actor.uid,
-        atendidoPorNome: diretor.nome,
-        providenciaExecutadaEm: FieldValue.serverTimestamp(),
-      });
-    });
-    return {
-      concluida: true,
-    };
   }
   return {
     alterarAcesso,
